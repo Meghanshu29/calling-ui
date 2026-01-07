@@ -108,8 +108,9 @@ export default function LoginScreen() {
       console.log('Login response:', response);
       
       // Store auth token
-      if (response.token) {
-        await AsyncStorage.setItem('authToken', response.token);
+      if (response.access_token?.accessToken) {
+        await AsyncStorage.setItem('authToken', response.access_token.accessToken);
+        console.log('Token stored:', response.access_token.accessToken);
       }
       
       if (rememberMe) {
