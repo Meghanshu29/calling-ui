@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -15,8 +15,11 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { PhoneInput } from '../components/PhoneInput';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { GradientButton } from '../components/GradientButton';
+import { login, requestOtp } from '../endpoints/auth';
+import { Toast } from '../components/Toast';
+import { useToast } from '../hooks/useToast';
 
 const lightTheme = {
   background: '#f8fafc',
@@ -54,13 +57,7 @@ const darkTheme = {
   linkColor: '#60a5fa',
 };
 
-const countryCodes = [
-  { code: '+1', country: 'US' },
-  { code: '+44', country: 'UK' },
-  { code: '+91', country: 'IN' },
-  { code: '+86', country: 'CN' },
-  { code: '+81', country: 'JP' },
-];
+
 
 export default function LoginScreen() {
   const [loginMethod, setLoginMethod] = useState<'userId' | 'phone'>('userId');
@@ -69,26 +66,90 @@ export default function LoginScreen() {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
+  const [loading, setLoading] = useState(false);
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const router = useRouter();
+  const { toast, showSuccess, showError, hideToast } = useToast();
 
-  const handleUserIdLogin = () => {
-    if (!userId || !password) {
-      Alert.alert('Error', 'Please enter both User ID and Password');
-      return;
+  useEffect(() => {
+    loadSavedCredentials();
+  }, []);
+
+  const loadSavedCredentials = async () => {
+    try {
+      const savedUserId = await AsyncStorage.getItem('savedUserId');
+      const savedPassword = await AsyncStorage.getItem('savedPassword');
+      const wasRemembered = await AsyncStorage.getItem('rememberMe');
+      
+      if (wasRemembered === 'true' && savedUserId && savedPassword) {
+        setUserId(savedUserId);
+        setPassword(savedPassword);
+        setRememberMe(true);
+      }
+    } catch (error) {
+      console.error('Error loading saved credentials:', error);
     }
-    Alert.alert('Success', 'Login successful!', [
-      { text: 'OK', onPress: () => router.replace('/(tabs)') }
-    ]);
   };
 
-  const handlePhoneLogin = () => {
-    if (!phoneNumber) {
-      Alert.alert('Error', 'Please enter phone number');
+  const handleUserIdLogin = async () => {
+    if (!userId?.trim()) {
+      showError('Username/Email is required');
       return;
     }
-    router.push(`/otp?phone=${encodeURIComponent(phoneNumber)}`);
+    if (!password?.trim()) {
+      showError('Password is required');
+      return;
+    }
+    setLoading(true);
+    try {
+      const response = await login(userId.trim(), password);
+      console.log('Login response:', response);
+      
+      // Store auth token
+      if (response.token) {
+        await AsyncStorage.setItem('authToken', response.token);
+      }
+      
+      if (rememberMe) {
+        await AsyncStorage.setItem('savedUserId', userId.trim());
+        await AsyncStorage.setItem('savedPassword', password);
+        await AsyncStorage.setItem('rememberMe', 'true');
+      } else {
+        await AsyncStorage.removeItem('savedUserId');
+        await AsyncStorage.removeItem('savedPassword');
+        await AsyncStorage.removeItem('rememberMe');
+      }
+      
+      showSuccess('Login successful!');
+      setTimeout(() => router.replace('/(tabs)'), 1000);
+    } catch (error: any) {
+      showError(error.message || 'Login failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePhoneLogin = async () => {
+    if (!phoneNumber?.trim()) {
+      showError('Please enter phone number');
+      return;
+    }
+    const phone = parseInt(phoneNumber);
+    if (!phone || phone <= 0) {
+      showError('Valid phone number is required');
+      return;
+    }
+    setLoading(true);
+    try {
+      await requestOtp(phone);
+      showSuccess('OTP sent successfully!');
+      setTimeout(() => router.push(`/otp?phone=${encodeURIComponent(phoneNumber)}`), 1000);
+    } catch (error: any) {
+      showError(error.message || 'Failed to send OTP');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const theme = isDark ? darkTheme : lightTheme;
@@ -199,7 +260,7 @@ export default function LoginScreen() {
               </TouchableOpacity>
             </View>
 
-            <GradientButton onPress={handleUserIdLogin}>
+            <GradientButton onPress={handleUserIdLogin} loading={loading}>
               Sign In
             </GradientButton>
           </View>
@@ -207,17 +268,23 @@ export default function LoginScreen() {
           <View style={styles.form}>
             <View>
               <Text style={[styles.label, { color: theme.textSecondary }]}>Phone Number</Text>
-              <PhoneInput
-                value={phoneNumber}
-                onChangeText={setPhoneNumber}
-                theme={theme}
-              />
+              <View style={[styles.inputContainer, { backgroundColor: theme.inputBackground, borderColor: theme.inputBorder }]}>
+                <Ionicons name="call-outline" size={20} color={theme.iconColor} style={styles.inputIcon} />
+                <TextInput
+                  style={[styles.input, { color: theme.textPrimary }]}
+                  placeholder="Enter phone number"
+                  placeholderTextColor={theme.placeholderColor}
+                  value={phoneNumber}
+                  onChangeText={setPhoneNumber}
+                  keyboardType="numeric"
+                />
+              </View>
               <Text style={[styles.helperText, { color: theme.textSecondary }]}>
                 OTP will be sent to this number for verification
               </Text>
             </View>
 
-            <GradientButton onPress={handlePhoneLogin}>
+            <GradientButton onPress={handlePhoneLogin} loading={loading}>
               Continue
             </GradientButton>
 
@@ -238,6 +305,12 @@ export default function LoginScreen() {
           </TouchableOpacity>
         </View>
       </View>
+      <Toast
+        message={toast.message}
+        type={toast.type}
+        visible={toast.visible}
+        onHide={hideToast}
+      />
     </KeyboardAvoidingView>
   );
 }

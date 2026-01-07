@@ -16,8 +16,10 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { PhoneInput } from '../components/PhoneInput';
 import { GradientButton } from '../components/GradientButton';
+import { signup, requestOtp } from '../endpoints/auth';
+import { Toast } from '../components/Toast';
+import { useToast } from '../hooks/useToast';
 
 const lightTheme = {
   background: '#f8fafc',
@@ -55,43 +57,122 @@ const darkTheme = {
   linkColor: '#60a5fa',
 };
 
-const countryCodes = [
-  { code: '+1', country: 'US' },
-  { code: '+44', country: 'UK' },
-  { code: '+91', country: 'IN' },
-  { code: '+86', country: 'CN' },
-  { code: '+81', country: 'JP' },
-];
+
 
 export default function SignupScreen() {
   const [fullName, setFullName] = useState('');
+  const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [otp, setOtp] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [agreeTerms, setAgreeTerms] = useState(false);
+  const [otpSent, setOtpSent] = useState(false);
+  const [loading, setLoading] = useState(false);
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const router = useRouter();
+  const { toast, showSuccess, showError, hideToast } = useToast();
 
-  const handleSignup = () => {
-    if (!fullName || !email || !phoneNumber || !password || !confirmPassword) {
-      Alert.alert('Error', 'Please fill in all fields');
+  const handleSendOtp = async () => {
+    if (!phoneNumber?.trim()) {
+      showError('Please enter phone number');
+      return;
+    }
+    const phone = parseInt(phoneNumber);
+    if (!phone || phone <= 0) {
+      showError('Valid phone number is required');
+      return;
+    }
+    setLoading(true);
+    try {
+      await requestOtp(phone);
+      setOtpSent(true);
+      showSuccess('OTP sent to your phone');
+    } catch (error: any) {
+      showError(error.message || 'Failed to send OTP');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSignup = async () => {
+    if (!fullName?.trim()) {
+      showError('Full name is required');
+      return;
+    }
+    if (!username?.trim()) {
+      showError('Username is required');
+      return;
+    }
+    if (!email?.trim()) {
+      showError('Email is required');
+      return;
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      showError('Invalid email format');
+      return;
+    }
+    if (!phoneNumber?.trim()) {
+      showError('Phone number is required');
+      return;
+    }
+    const phone = parseInt(phoneNumber);
+    if (!phone || phone <= 0) {
+      showError('Valid phone number is required');
+      return;
+    }
+    if (!password?.trim()) {
+      showError('Password is required');
+      return;
+    }
+    if (password.length < 6) {
+      showError('Password must be at least 6 characters');
+      return;
+    }
+    if (!confirmPassword?.trim()) {
+      showError('Please confirm your password');
       return;
     }
     if (password !== confirmPassword) {
-      Alert.alert('Error', 'Passwords do not match');
+      showError('Passwords do not match');
+      return;
+    }
+    if (!otp?.trim()) {
+      showError('OTP is required');
       return;
     }
     if (!agreeTerms) {
-      Alert.alert('Error', 'Please agree to the terms and conditions');
+      showError('Please agree to the terms and conditions');
       return;
     }
-    Alert.alert('Success', 'Account created successfully!', [
-      { text: 'OK', onPress: () => router.replace('/(tabs)') }
-    ]);
+    setLoading(true);
+    try {
+      const response = await signup({
+        username: username.trim(),
+        email: email.trim(),
+        password,
+        full_name: fullName.trim(),
+        phone,
+        otp: otp.trim()
+      });
+      
+      // Store auth token
+      if (response.token) {
+        await AsyncStorage.setItem('authToken', response.token);
+      }
+      
+      showSuccess('Account created successfully!');
+      setTimeout(() => router.replace('/(tabs)'), 1000);
+    } catch (error: any) {
+      showError(error.message || 'Signup failed');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const theme = isDark ? darkTheme : lightTheme;
@@ -139,6 +220,21 @@ export default function SignupScreen() {
           </View>
 
           <View>
+            <Text style={[styles.label, { color: theme.textSecondary }]}>Username</Text>
+            <View style={[styles.inputContainer, { backgroundColor: theme.inputBackground, borderColor: theme.inputBorder }]}>
+              <Ionicons name="at-outline" size={20} color={theme.iconColor} style={styles.inputIcon} />
+              <TextInput
+                style={[styles.input, { color: theme.textPrimary }]}
+                placeholder="Enter username"
+                placeholderTextColor={theme.placeholderColor}
+                value={username}
+                onChangeText={setUsername}
+                autoCapitalize="none"
+              />
+            </View>
+          </View>
+
+          <View>
             <Text style={[styles.label, { color: theme.textSecondary }]}>Email</Text>
             <View style={[styles.inputContainer, { backgroundColor: theme.inputBackground, borderColor: theme.inputBorder }]}>
               <Ionicons name="mail-outline" size={20} color={theme.iconColor} style={styles.inputIcon} />
@@ -156,12 +252,49 @@ export default function SignupScreen() {
 
           <View>
             <Text style={[styles.label, { color: theme.textSecondary }]}>Phone Number</Text>
-            <PhoneInput
-              value={phoneNumber}
-              onChangeText={setPhoneNumber}
-              theme={theme}
-            />
+            <View style={styles.phoneRow}>
+              <View style={{ flex: 1 }}>
+                <View style={[styles.inputContainer, { backgroundColor: theme.inputBackground, borderColor: theme.inputBorder }]}>
+                  <Ionicons name="call-outline" size={20} color={theme.iconColor} style={styles.inputIcon} />
+                  <TextInput
+                    style={[styles.input, { color: theme.textPrimary }]}
+                    placeholder="Enter phone number"
+                    placeholderTextColor={theme.placeholderColor}
+                    value={phoneNumber}
+                    onChangeText={setPhoneNumber}
+                    keyboardType="numeric"
+                  />
+                </View>
+              </View>
+              <TouchableOpacity
+                style={[styles.otpButton, { backgroundColor: theme.linkColor }]}
+                onPress={handleSendOtp}
+                disabled={otpSent || loading}
+              >
+                <Text style={styles.otpButtonText}>
+                  {otpSent ? 'Sent' : 'Send OTP'}
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
+
+          {otpSent && (
+            <View>
+              <Text style={[styles.label, { color: theme.textSecondary }]}>OTP</Text>
+              <View style={[styles.inputContainer, { backgroundColor: theme.inputBackground, borderColor: theme.inputBorder }]}>
+                <Ionicons name="key-outline" size={20} color={theme.iconColor} style={styles.inputIcon} />
+                <TextInput
+                  style={[styles.input, { color: theme.textPrimary }]}
+                  placeholder="Enter OTP"
+                  placeholderTextColor={theme.placeholderColor}
+                  value={otp}
+                  onChangeText={setOtp}
+                  keyboardType="numeric"
+                  maxLength={6}
+                />
+              </View>
+            </View>
+          )}
 
           <View>
             <Text style={[styles.label, { color: theme.textSecondary }]}>Password</Text>
@@ -224,7 +357,7 @@ export default function SignupScreen() {
             </TouchableOpacity>
           </View>
 
-          <GradientButton onPress={handleSignup}>
+          <GradientButton onPress={handleSignup} loading={loading}>
             Create Account
           </GradientButton>
 
@@ -238,6 +371,12 @@ export default function SignupScreen() {
           </View>
         </View>
       </ScrollView>
+      <Toast
+        message={toast.message}
+        type={toast.type}
+        visible={toast.visible}
+        onHide={hideToast}
+      />
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -423,5 +562,22 @@ const styles = StyleSheet.create({
   },
   loginText: {
     fontSize: 14,
+  },
+  phoneRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 12,
+  },
+  otpButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 8,
+    minWidth: 80,
+    alignItems: 'center',
+  },
+  otpButtonText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });

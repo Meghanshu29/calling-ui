@@ -1,98 +1,309 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, useColorScheme, ActivityIndicator, Modal, TextInput, TouchableOpacity } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { GetUnregisterdUsers, updateFeedback } from '../../endpoints/users';
+import { UserCard } from '../../components/UserCard';
+import { Toast } from '../../components/Toast';
+import { useToast } from '../../hooks/useToast';
+import { Ionicons } from '@expo/vector-icons';
 
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
+interface User {
+  id: number;
+  name: string;
+  mobile_no: string | null;
+  instruction: string;
+  status: string;
+  feedback: string;
+  assigned_to: string;
+  is_processed: boolean;
+  created_at: string;
+  updated_at: string;
+}
 
 export default function HomeScreen() {
-  return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction title="Action" icon="cube" onPress={() => alert('Action pressed')} />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert('Share pressed')}
-            />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert('Delete pressed')}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
+  const [users, setUsers] = useState<User[]>([]);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [selectedStatus, setSelectedStatus] = useState('');
+  const [feedback, setFeedback] = useState('');
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [submittingFeedback, setSubmittingFeedback] = useState(false);
+  const [completedUsers, setCompletedUsers] = useState<Set<number>>(new Set());
+  const [loading, setLoading] = useState(true);
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
+  const { toast, showSuccess, showError, hideToast } = useToast();
 
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
+  const fetchUsers = async () => {
+    try {
+      const response = await GetUnregisterdUsers({ limit: 100, offset: 0 });
+      setUsers(response.users || []);
+    } catch (error) {
+      console.error('Error fetching users:', error);
+      showError('Failed to load contacts');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSubmitFeedback = () => {
+    if (!selectedStatus) {
+      showError('Please select a call status before proceeding');
+      return;
+    }
+    setShowFeedbackModal(true);
+  };
+
+  const handleFeedbackSubmit = async () => {
+    if (!feedback.trim()) {
+      showError('Please enter feedback before proceeding');
+      return;
+    }
+    
+    setSubmittingFeedback(true);
+    try {
+      const currentUser = users[currentIndex];
+      await updateFeedback(currentUser.id, selectedStatus, feedback);
+      
+      setCompletedUsers(prev => new Set(prev).add(currentIndex));
+      
+      if (currentIndex < users.length - 1) {
+        setCurrentIndex(currentIndex + 1);
+        setSelectedStatus('');
+        setFeedback('');
+        setShowFeedbackModal(false);
+        showSuccess('Status saved successfully!');
+      } else {
+        setShowFeedbackModal(false);
+        showSuccess('All users have been contacted successfully!');
+      }
+    } catch (error) {
+      console.error('Error updating feedback:', error);
+      showError('Failed to save feedback. Please try again.');
+    } finally {
+      setSubmittingFeedback(false);
+    }
+  };
+
+  const handlePrevious = () => {
+    if (currentIndex > 0) {
+      setCurrentIndex(currentIndex - 1);
+      setSelectedStatus('');
+      setFeedback('');
+    }
+  };
+
+  if (loading) {
+    return (
+      <LinearGradient
+        colors={isDark ? ['#0f172a', '#1e293b'] as const : ['#f0f9ff', '#e0f2fe'] as const}
+        style={[styles.container, styles.centered]}
+      >
+        <ActivityIndicator size="large" color={isDark ? '#60a5fa' : '#3b82f6'} />
+        <Text style={[styles.loadingText, { color: isDark ? '#94a3b8' : '#64748b' }]}>Loading contacts...</Text>
+      </LinearGradient>
+    );
+  }
+
+  if (users.length === 0) {
+    return (
+      <LinearGradient
+        colors={isDark ? ['#0f172a', '#1e293b'] as const : ['#f0f9ff', '#e0f2fe'] as const}
+        style={[styles.container, styles.centered]}
+      >
+        <Text style={[styles.emptyText, { color: isDark ? '#94a3b8' : '#64748b' }]}>📭 No contacts found</Text>
+      </LinearGradient>
+    );
+  }
+
+  return (
+    <LinearGradient
+      colors={isDark ? ['#0f172a', '#1e293b', '#334155'] as const : ['#f0f9ff', '#e0f2fe', '#f8fafc'] as const}
+      style={styles.container}
+    >
+      <View style={styles.header}>
+        <Text style={[styles.title, { color: isDark ? '#f8fafc' : '#0f172a' }]}>Calling Dashboard</Text>
+        <View style={[
+          styles.progressContainer,
+          { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.1)' : 'rgba(59, 130, 246, 0.05)' }
+        ]}>
+          <Text style={[styles.progress, { color: isDark ? '#60a5fa' : '#3b82f6' }]}>
+            {currentIndex + 1} of {users.length} contacts
+          </Text>
+        </View>
+      </View>
+
+      <UserCard
+        user={users[currentIndex] || null}
+        onSubmit={handleSubmitFeedback}
+        onPrevious={handlePrevious}
+        isDark={isDark}
+        isLastUser={currentIndex === users.length - 1}
+        isFirstUser={currentIndex === 0}
+        selectedStatus={selectedStatus}
+        onStatusChange={setSelectedStatus}
+      />
+      <Toast
+        message={toast.message}
+        type={toast.type}
+        visible={toast.visible}
+        onHide={hideToast}
+      />
+      
+      <Modal visible={showFeedbackModal} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <LinearGradient
+            colors={isDark ? ['#1e293b', '#334155'] : ['#ffffff', '#f8fafc']}
+            style={styles.feedbackModal}
+          >
+            <Text style={[styles.modalTitle, { color: isDark ? '#f8fafc' : '#0f172a' }]}>
+              📝 Add Feedback
+            </Text>
+            <TextInput
+              style={[
+                styles.feedbackInput,
+                {
+                  backgroundColor: isDark ? '#475569' : '#ffffff',
+                  borderColor: isDark ? '#64748b' : '#e2e8f0',
+                  color: isDark ? '#f8fafc' : '#0f172a'
+                }
+              ]}
+              placeholder="Enter your feedback about the call..."
+              placeholderTextColor={isDark ? '#94a3b8' : '#64748b'}
+              value={feedback}
+              onChangeText={setFeedback}
+              multiline
+              numberOfLines={4}
+              textAlignVertical="top"
+            />
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => setShowFeedbackModal(false)}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                onPress={handleFeedbackSubmit}
+                disabled={submittingFeedback}
+              >
+                <LinearGradient
+                  colors={['#3b82f6', '#1d4ed8']}
+                  style={[styles.modalButton, styles.submitButton]}
+                >
+                  {submittingFeedback ? (
+                    <ActivityIndicator size="small" color="white" />
+                  ) : (
+                    <>
+                      <Text style={styles.submitButtonText}>Submit</Text>
+                      <Ionicons name="checkmark" size={16} color="white" />
+                    </>
+                  )}
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+          </LinearGradient>
+        </View>
+      </Modal>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
+  container: {
+    flex: 1,
+    paddingTop: 60,
+    paddingHorizontal: 20,
+  },
+  centered: {
+    justifyContent: 'center',
     alignItems: 'center',
+  },
+  header: {
+    alignItems: 'center',
+    marginBottom: 40,
+  },
+  title: {
+    fontSize: 32,
+    fontWeight: '800',
+    marginBottom: 16,
+    letterSpacing: -1,
+  },
+  progressContainer: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(59, 130, 246, 0.2)',
+  },
+  progress: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 18,
+    fontWeight: '500',
+  },
+  emptyText: {
+    fontSize: 20,
+    fontWeight: '500',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  feedbackModal: {
+    width: '100%',
+    borderRadius: 16,
+    padding: 24,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  feedbackInput: {
+    borderWidth: 2,
+    borderRadius: 12,
+    padding: 16,
+    fontSize: 16,
+    minHeight: 100,
+    marginBottom: 20,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelButton: {
+    backgroundColor: '#6b7280',
+  },
+  submitButton: {
+    flexDirection: 'row',
     gap: 8,
   },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
+  cancelButtonText: {
+    color: 'white',
+    fontWeight: '600',
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
+  submitButtonText: {
+    color: 'white',
+    fontWeight: '600',
   },
 });
