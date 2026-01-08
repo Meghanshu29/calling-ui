@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import React, { useState } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View, Modal, FlatList, Linking } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { StyleSheet, Text, TouchableOpacity, View, Modal, FlatList, Linking, Animated } from 'react-native';
 
 interface User {
   id: number;
@@ -20,6 +20,7 @@ interface User {
 interface UserCardProps {
   user: User | null;
   onSubmit: () => void;
+  onSkip: () => void;
   onPrevious?: () => void;
   isDark: boolean;
   isLastUser: boolean;
@@ -39,6 +40,7 @@ const statusOptions = [
 export const UserCard: React.FC<UserCardProps> = ({
   user,
   onSubmit,
+  onSkip,
   onPrevious,
   isDark,
   isLastUser,
@@ -47,6 +49,42 @@ export const UserCard: React.FC<UserCardProps> = ({
   onStatusChange
 }) => {
   const [showDropdown, setShowDropdown] = useState(false);
+  const [slideAnim] = useState(new Animated.Value(0));
+  const borderAnimation = new Animated.Value(0);
+
+  useEffect(() => {
+    const animate = () => {
+      Animated.sequence([
+        Animated.timing(borderAnimation, {
+          toValue: 1,
+          duration: 2000,
+          useNativeDriver: false,
+        }),
+        Animated.timing(borderAnimation, {
+          toValue: 0,
+          duration: 2000,
+          useNativeDriver: false,
+        }),
+      ]).start(() => animate());
+    };
+    animate();
+  }, []);
+
+  const animateSlide = () => {
+    Animated.timing(slideAnim, {
+      toValue: 300,
+      duration: 300,
+      useNativeDriver: true,
+    }).start(() => {
+      slideAnim.setValue(0);
+    });
+    
+    if (selectedStatus === 'Interested' || selectedStatus === 'Busy Call Later') {
+      onSkip();
+    } else {
+      onSubmit();
+    }
+  };
 
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
@@ -92,24 +130,32 @@ export const UserCard: React.FC<UserCardProps> = ({
   }
 
   return (
-    <View style={styles.cardContainer}>
+    <Animated.View style={[
+      styles.cardContainer,
+      {
+        transform: [{ translateX: slideAnim }]
+      }
+    ]}>
       <LinearGradient
         colors={isDark ? ['#1e293b', '#334155'] as const : ['#ffffff', '#f8fafc'] as const}
         style={styles.userCard}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
       >
-        <View style={[
+        <Animated.View style={[
           styles.statusChip,
           {
             backgroundColor: getStatusColor(user.tag || 'matchmaking').background,
-            borderColor: getStatusColor(user.tag || 'matchmaking').border
+            borderColor: borderAnimation.interpolate({
+              inputRange: [0, 1],
+              outputRange: [getStatusColor(user.tag || 'matchmaking').border, '#8c24fbff']
+            })
           }
         ]}>
           <Text style={[styles.statusText, { color: getStatusColor(user.tag || 'matchmaking').text }]}>
             {getStatusLabel(user.tag || 'matchmaking')}
           </Text>
-        </View>
+        </Animated.View>
         
         <View style={styles.userHeader}>
           <LinearGradient
@@ -188,7 +234,7 @@ export const UserCard: React.FC<UserCardProps> = ({
             </TouchableOpacity>
           )}
           
-          <TouchableOpacity onPress={onSubmit} style={[styles.buttonContainer, !isFirstUser && styles.nextButton]}>
+          <TouchableOpacity onPress={animateSlide} style={[styles.buttonContainer, !isFirstUser && styles.nextButton]}>
             <LinearGradient
               colors={['#3b82f6', '#1d4ed8'] as const}
               style={styles.submitButton}
@@ -234,7 +280,7 @@ export const UserCard: React.FC<UserCardProps> = ({
           </TouchableOpacity>
         </Modal>
       </LinearGradient>
-    </View>
+    </Animated.View>
   );
 };
 
@@ -283,6 +329,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginBottom: 8,
     letterSpacing: -0.5,
+    marginTop:10
   },
   statusChip: {
     position: 'absolute',
@@ -291,7 +338,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
-    borderWidth: 1,
+    borderWidth: 2.5,
     zIndex: 1,
   },
   statusText: {

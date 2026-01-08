@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, useColorScheme, ActivityIndicator, Modal, TextInput, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, useColorScheme, ActivityIndicator, Modal, TextInput, TouchableOpacity, Animated } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { GetUnregisterdUsers, updateFeedback } from '../../endpoints/users';
 import { UserCard } from '../../components/UserCard';
@@ -39,13 +39,17 @@ export default function HomeScreen() {
 
   const fetchNextUser = async () => {
     try {
-      const response = await GetUnregisterdUsers({ 
+      const payload = { 
         status: 'pending',
         assigned_to: '',
         auto_assign: true,
         limit: 1, 
         offset: 0
-      });
+      };
+      
+      console.log('GetUnregisterdUsers payload:', JSON.stringify(payload, null, 2));
+      
+      const response = await GetUnregisterdUsers(payload);
       
       console.log('GetUnregisterdUsers response:', JSON.stringify(response, null, 2));
       
@@ -71,6 +75,23 @@ export default function HomeScreen() {
     setShowFeedbackModal(true);
   };
 
+  const handleSkipFeedback = async () => {
+    try {
+      if (currentUser) {
+        await updateFeedback(currentUser.id, selectedStatus, 'Auto-skipped for ' + selectedStatus);
+      }
+      
+      setSelectedStatus('');
+      showSuccess('Status saved successfully!');
+      
+      setLoadingNext(true);
+      fetchNextUser();
+    } catch (error) {
+      console.error('Error updating feedback:', error);
+      showError('Failed to save feedback. Please try again.');
+    }
+  };
+
   const handleFeedbackSubmit = async () => {
     if (!feedback.trim()) {
       showError('Please enter feedback before proceeding');
@@ -88,7 +109,6 @@ export default function HomeScreen() {
       setShowFeedbackModal(false);
       showSuccess('Status saved successfully!');
       
-      // Fetch next user
       setLoadingNext(true);
       fetchNextUser();
     } catch (error) {
@@ -141,6 +161,7 @@ export default function HomeScreen() {
       <UserCard
         user={currentUser}
         onSubmit={handleSubmitFeedback}
+        onSkip={handleSkipFeedback}
         isDark={isDark}
         selectedStatus={selectedStatus}
         onStatusChange={setSelectedStatus}
