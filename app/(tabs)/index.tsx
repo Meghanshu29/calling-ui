@@ -1,12 +1,25 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, useColorScheme, ActivityIndicator, Modal, TextInput, TouchableOpacity, Animated } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { GetUnregisterdUsers, updateFeedback } from '../../endpoints/users';
-import { UserCard } from '../../components/UserCard';
-import { Toast } from '../../components/Toast';
-import { useToast } from '../../hooks/useToast';
-import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { LinearGradient } from "expo-linear-gradient";
+import { useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  Modal,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  useColorScheme,
+  View,
+} from "react-native";
+import { Toast } from "../../components/Toast";
+import { UserCard } from "../../components/UserCard";
+import {
+  getMatchedUsers,
+  getUnregisteredUsers,
+  updateFeedback,
+} from "../../endpoints/users";
+import { useToast } from "../../hooks/useToast";
 
 interface User {
   id: number;
@@ -23,109 +36,74 @@ interface User {
 }
 
 export default function HomeScreen() {
+  const [activeTab, setActiveTab] = useState<"unregistered" | "matched" | null>(
+    "unregistered"
+  );
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [selectedStatus, setSelectedStatus] = useState('');
-  const [feedback, setFeedback] = useState('');
+  const [selectedStatus, setSelectedStatus] = useState("");
+  const [feedback, setFeedback] = useState("");
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [submittingFeedback, setSubmittingFeedback] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [loadingNext, setLoadingNext] = useState(false);
-  const [loggedInUser, setLoggedInUser] = useState<string>('ADMIN');
+  const [loggedInUser, setLoggedInUser] = useState<string>("ADMIN");
   const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const isDark = colorScheme === "dark";
   const { toast, showSuccess, showError, hideToast } = useToast();
 
   useEffect(() => {
     loadUserInfo();
   }, []);
 
-  const loadUserInfo = async () => {
-    try {
-      const userInfo = await AsyncStorage.getItem('userInfo');
-      console.log('Stored userInfo:', userInfo);
-      
-      if (userInfo) {
-        const parsedUser = JSON.parse(userInfo);
-        console.log('Parsed user:', parsedUser);
-        const username = parsedUser.username || parsedUser.email;
-        console.log('Using username:', username);
-        setLoggedInUser(username);
-        // Call fetchNextUser with the actual username
-        fetchNextUserWithUser(username);
-      } else {
-        fetchNextUser();
-      }
-    } catch (error) {
-      console.error('Error loading user info:', error);
+  useEffect(() => {
+    if (loggedInUser && activeTab === "unregistered") {
       fetchNextUser();
     }
-  };
+  }, [loggedInUser]);
 
-  const fetchNextUserWithUser = async (currentUser: string) => {
+  const loadUserInfo = async () => {
     try {
-      const payload = { 
-        status: 'pending',
-        assigned_to: '',
-        auto_assign: true,
-        current_user: currentUser,
-        limit: 1, 
-        offset: 0
-      };
-      
-      console.log('GetUnregisterdUsers payload:', JSON.stringify(payload, null, 2));
-      
-      const response = await GetUnregisterdUsers(payload);
-      
-      console.log('GetUnregisterdUsers response:', JSON.stringify(response, null, 2));
-      
-      if (response.users && response.users.length > 0) {
-        setCurrentUser(response.users[0]);
+      const userInfo = await AsyncStorage.getItem("userInfo");
+      if (userInfo) {
+        const parsedUser = JSON.parse(userInfo);
+        const username = parsedUser.username || parsedUser.email;
+        setLoggedInUser(username);
       } else {
-        setCurrentUser(null);
+        setLoggedInUser("ADMIN");
       }
     } catch (error) {
-      console.error('Error fetching user:', error);
-      showError('Failed to load contact');
-    } finally {
-      setLoading(false);
-      setLoadingNext(false);
+      console.error("Error loading user info:", error);
+      setLoggedInUser("ADMIN");
     }
   };
 
   const fetchNextUser = async () => {
+    if (!activeTab) return;
+    setLoadingNext(true);
     try {
-      const payload = { 
-        status: 'pending',
-        assigned_to: '',
-        auto_assign: true,
-        current_user: loggedInUser,
-        limit: 1, 
-        offset: 0
-      };
-      
-      console.log('GetUnregisterdUsers payload:', JSON.stringify(payload, null, 2));
-      
-      const response = await GetUnregisterdUsers(payload);
-      
-      console.log('GetUnregisterdUsers response:', JSON.stringify(response, null, 2));
-      
+      let response;
+      if (activeTab === "unregistered") {
+        response = await getUnregisteredUsers(selectedStatus, "", loggedInUser);
+      } else {
+        response = await getMatchedUsers(selectedStatus, "", loggedInUser);
+      }
+
       if (response.users && response.users.length > 0) {
         setCurrentUser(response.users[0]);
       } else {
         setCurrentUser(null);
       }
-    } catch (error) {
-      console.error('Error fetching user:', error);
-      showError('Failed to load contact');
+    } catch (error: any) {
+      console.error("Error fetching user:", error);
+      showError("Failed to load contact");
     } finally {
-      setLoading(false);
       setLoadingNext(false);
     }
   };
 
   const handleSubmitFeedback = () => {
     if (!selectedStatus) {
-      showError('Please select a call status before proceeding');
+      showError("Please select a call status before proceeding");
       return;
     }
     setShowFeedbackModal(true);
@@ -134,123 +112,274 @@ export default function HomeScreen() {
   const handleSkipFeedback = async () => {
     try {
       if (currentUser) {
-        await updateFeedback(currentUser.id, selectedStatus, 'Auto-skipped for ' + selectedStatus);
+        await updateFeedback(
+          currentUser.id,
+          selectedStatus,
+          "Auto-skipped for " + selectedStatus
+        );
       }
-      
-      setSelectedStatus('');
-      showSuccess('Status saved successfully!');
-      
+
+      setSelectedStatus("");
+      showSuccess("Status saved successfully!");
+
       setLoadingNext(true);
       fetchNextUser();
     } catch (error) {
-      console.error('Error updating feedback:', error);
-      showError('Failed to save feedback. Please try again.');
+      console.error("Error updating feedback:", error);
+      showError("Failed to save feedback. Please try again.");
     }
   };
 
   const handleFeedbackSubmit = async () => {
     if (!feedback.trim()) {
-      showError('Please enter feedback before proceeding');
+      showError("Please enter feedback before proceeding");
       return;
     }
-    
+
     setSubmittingFeedback(true);
     try {
       if (currentUser) {
         await updateFeedback(currentUser.id, selectedStatus, feedback);
       }
-      
-      setSelectedStatus('');
-      setFeedback('');
+
+      setSelectedStatus("");
+      setFeedback("");
       setShowFeedbackModal(false);
-      showSuccess('Status saved successfully!');
-      
+      showSuccess("Status saved successfully!");
+
       setLoadingNext(true);
       fetchNextUser();
     } catch (error) {
-      console.error('Error updating feedback:', error);
-      showError('Failed to save feedback. Please try again.');
+      console.error("Error updating feedback:", error);
+      showError("Failed to save feedback. Please try again.");
     } finally {
       setSubmittingFeedback(false);
     }
   };
 
-
-
-  if (loading) {
-    return (
-      <LinearGradient
-        colors={isDark ? ['#0f172a', '#1e293b'] as const : ['#f0f9ff', '#e0f2fe'] as const}
-        style={[styles.container, styles.centered]}
-      >
-        <ActivityIndicator size="large" color={isDark ? '#60a5fa' : '#3b82f6'} />
-        <Text style={[styles.loadingText, { color: isDark ? '#94a3b8' : '#64748b' }]}>Loading contacts...</Text>
-      </LinearGradient>
-    );
-  }
-
-  if (!currentUser && !loading) {
-    return (
-      <LinearGradient
-        colors={isDark ? ['#0f172a', '#1e293b'] as const : ['#f0f9ff', '#e0f2fe'] as const}
-        style={[styles.container, styles.centered]}
-      >
-        <Text style={[styles.emptyText, { color: isDark ? '#94a3b8' : '#64748b' }]}>No contacts found</Text>
-      </LinearGradient>
-    );
-  }
-
   return (
     <LinearGradient
-      colors={isDark ? ['#0f172a', '#1e293b', '#334155'] as const : ['#f0f9ff', '#e0f2fe', '#f8fafc'] as const}
+      colors={
+        isDark
+          ? (["#0f172a", "#1e293b", "#334155"] as const)
+          : (["#f0f9ff", "#e0f2fe", "#f8fafc"] as const)
+      }
       style={styles.container}
     >
       <View style={styles.header}>
-        <Text style={[styles.title, { color: isDark ? '#f8fafc' : '#0f172a' }]}>Calling Dashboard</Text>
+        <Text style={[styles.title, { color: isDark ? "#f8fafc" : "#0f172a" }]}>
+          Calling Dashboard
+        </Text>
+
+        <View style={styles.tabContainer}>
+          <TouchableOpacity
+            style={[
+              styles.tab,
+              activeTab === "unregistered" && styles.activeTab,
+              {
+                backgroundColor:
+                  activeTab === "unregistered"
+                    ? "#3b82f6"
+                    : isDark
+                    ? "#334155"
+                    : "#e2e8f0",
+              },
+            ]}
+            onPress={async () => {
+              setActiveTab("unregistered");
+              setLoading(true);
+              setCurrentUser(null);
+
+              try {
+                const response = await getUnregisteredUsers(
+                  selectedStatus,
+                  "",
+                  loggedInUser
+                );
+                if (response.users && response.users.length > 0) {
+                  setCurrentUser(response.users[0]);
+                } else {
+                  setCurrentUser(null);
+                }
+              } catch (error: any) {
+                console.error("Error fetching user:", error);
+                showError("Failed to load contact");
+              } finally {
+                setLoading(false);
+              }
+            }}
+          >
+            <Text
+              style={[
+                styles.tabText,
+                {
+                  color:
+                    activeTab === "unregistered"
+                      ? "#ffffff"
+                      : isDark
+                      ? "#94a3b8"
+                      : "#64748b",
+                },
+              ]}
+            >
+              Unregistered
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.tab,
+              activeTab === "matched" && styles.activeTab,
+              {
+                backgroundColor:
+                  activeTab === "matched"
+                    ? "#3b82f6"
+                    : isDark
+                    ? "#334155"
+                    : "#e2e8f0",
+              },
+            ]}
+            onPress={async () => {
+              setActiveTab("matched");
+              setLoading(true);
+              setCurrentUser(null);
+
+              try {
+                const response = await getMatchedUsers(
+                  selectedStatus,
+                  "",
+                  loggedInUser
+                );
+
+                if (response.users && response.users.length > 0) {
+                  setCurrentUser(response.users[0]);
+                } else {
+                  setCurrentUser(null);
+                }
+              } catch (error) {
+                console.error("Error fetching user:", error);
+                showError("Failed to load contact");
+              } finally {
+                setLoading(false);
+              }
+            }}
+          >
+            <Text
+              style={[
+                styles.tabText,
+                {
+                  color:
+                    activeTab === "matched"
+                      ? "#ffffff"
+                      : isDark
+                      ? "#94a3b8"
+                      : "#64748b",
+                },
+              ]}
+            >
+              Matched User
+            </Text>
+          </TouchableOpacity>
+        </View>
+
         {loadingNext && (
-          <View style={[styles.progressContainer, { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.1)' : 'rgba(59, 130, 246, 0.05)' }]}>
-            <Text style={[styles.progress, { color: isDark ? '#60a5fa' : '#3b82f6' }]}>Loading next contact...</Text>
+          <View
+            style={[
+              styles.progressContainer,
+              {
+                backgroundColor: isDark
+                  ? "rgba(59, 130, 246, 0.1)"
+                  : "rgba(59, 130, 246, 0.05)",
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.progress,
+                { color: isDark ? "#60a5fa" : "#3b82f6" },
+              ]}
+            >
+              Loading next contact...
+            </Text>
           </View>
         )}
       </View>
 
-      <UserCard
-        user={currentUser}
-        onSubmit={handleSubmitFeedback}
-        onSkip={handleSkipFeedback}
-        isDark={isDark}
-        selectedStatus={selectedStatus}
-        onStatusChange={setSelectedStatus}
-        isFirstUser={true}
-        isLastUser={false}
-      />
+      {loading && (
+        <View style={styles.centered}>
+          <ActivityIndicator
+            size="large"
+            color={isDark ? "#60a5fa" : "#3b82f6"}
+          />
+          <Text
+            style={[
+              styles.loadingText,
+              { color: isDark ? "#94a3b8" : "#64748b" },
+            ]}
+          >
+            Loading contacts...
+          </Text>
+        </View>
+      )}
+
+      {!loading && !currentUser && activeTab && (
+        <View style={styles.centered}>
+          <Text
+            style={[
+              styles.emptyText,
+              { color: isDark ? "#94a3b8" : "#64748b" },
+            ]}
+          >
+            No contacts found
+          </Text>
+        </View>
+      )}
+
+      {!loading && currentUser && (
+        <UserCard
+          user={currentUser}
+          onSubmit={handleSubmitFeedback}
+          onSkip={handleSkipFeedback}
+          onNext={fetchNextUser}
+          isDark={isDark}
+          selectedStatus={selectedStatus}
+          onStatusChange={setSelectedStatus}
+          isFirstUser={true}
+          isLastUser={false}
+        />
+      )}
       <Toast
         message={toast.message}
         type={toast.type}
         visible={toast.visible}
         onHide={hideToast}
       />
-      
+
       <Modal visible={showFeedbackModal} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <LinearGradient
-            colors={isDark ? ['#1e293b', '#334155'] : ['#ffffff', '#f8fafc']}
+            colors={isDark ? ["#1e293b", "#334155"] : ["#ffffff", "#f8fafc"]}
             style={styles.feedbackModal}
           >
-            <Text style={[styles.modalTitle, { color: isDark ? '#f8fafc' : '#0f172a' }]}>
+            <Text
+              style={[
+                styles.modalTitle,
+                { color: isDark ? "#f8fafc" : "#0f172a" },
+              ]}
+            >
               📝 Add Feedback
             </Text>
             <TextInput
               style={[
                 styles.feedbackInput,
                 {
-                  backgroundColor: isDark ? '#475569' : '#ffffff',
-                  borderColor: isDark ? '#64748b' : '#e2e8f0',
-                  color: isDark ? '#f8fafc' : '#0f172a'
-                }
+                  backgroundColor: isDark ? "#475569" : "#ffffff",
+                  borderColor: isDark ? "#64748b" : "#e2e8f0",
+                  color: isDark ? "#f8fafc" : "#0f172a",
+                },
               ]}
               placeholder="Enter your feedback about the call..."
-              placeholderTextColor={isDark ? '#94a3b8' : '#64748b'}
+              placeholderTextColor={isDark ? "#94a3b8" : "#64748b"}
               value={feedback}
               onChangeText={setFeedback}
               multiline
@@ -264,12 +393,12 @@ export default function HomeScreen() {
               >
                 <Text style={styles.cancelButtonText}>Cancel</Text>
               </TouchableOpacity>
-              <TouchableOpacity 
+              <TouchableOpacity
                 onPress={handleFeedbackSubmit}
                 disabled={submittingFeedback}
               >
                 <LinearGradient
-                  colors={['#3b82f6', '#1d4ed8']}
+                  colors={["#3b82f6", "#1d4ed8"]}
                   style={[styles.modalButton, styles.submitButton]}
                 >
                   {submittingFeedback ? (
@@ -297,56 +426,77 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   centered: {
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   header: {
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: 40,
   },
   title: {
     fontSize: 32,
-    fontWeight: '800',
+    fontWeight: "800",
     marginBottom: 16,
     letterSpacing: -1,
+  },
+  tabContainer: {
+    flexDirection: "row",
+    gap: 12,
+    marginBottom: 16,
+  },
+  tab: {
+    paddingVertical: 10,
+    paddingHorizontal: 24,
+    borderRadius: 20,
+  },
+  activeTab: {
+    shadowColor: "#3b82f6",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  tabText: {
+    fontSize: 16,
+    fontWeight: "600",
   },
   progressContainer: {
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: 'rgba(59, 130, 246, 0.2)',
+    borderColor: "rgba(59, 130, 246, 0.2)",
   },
   progress: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   loadingText: {
     marginTop: 16,
     fontSize: 18,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   emptyText: {
     fontSize: 20,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
     padding: 20,
   },
   feedbackModal: {
-    width: '100%',
+    width: "100%",
     borderRadius: 16,
     padding: 24,
   },
   modalTitle: {
     fontSize: 20,
-    fontWeight: '700',
+    fontWeight: "700",
     marginBottom: 16,
-    textAlign: 'center',
+    textAlign: "center",
   },
   feedbackInput: {
     borderWidth: 2,
@@ -357,8 +507,8 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   modalButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     gap: 12,
   },
   modalButton: {
@@ -366,24 +516,24 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 20,
     borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   cancelButton: {
-    backgroundColor: '#6b7280',
+    backgroundColor: "#6b7280",
   },
   submitButton: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 8,
   },
   submitButtonText: {
-    color: 'white',
-    fontWeight: '600',
+    color: "white",
+    fontWeight: "600",
     fontSize: 16,
   },
   cancelButtonText: {
-    color: 'white',
-    fontWeight: '600',
+    color: "white",
+    fontWeight: "600",
     fontSize: 16,
   },
 });

@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View, Modal, FlatList, Linking, Animated } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { Animated, FlatList, Linking, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 interface User {
   id: number;
@@ -21,6 +21,7 @@ interface UserCardProps {
   user: User | null;
   onSubmit: () => void;
   onSkip: () => void;
+  onNext?: () => void;
   onPrevious?: () => void;
   isDark: boolean;
   isLastUser: boolean;
@@ -41,6 +42,7 @@ export const UserCard: React.FC<UserCardProps> = ({
   user,
   onSubmit,
   onSkip,
+  onNext,
   onPrevious,
   isDark,
   isLastUser,
@@ -83,6 +85,10 @@ export const UserCard: React.FC<UserCardProps> = ({
       onSkip();
     } else {
       onSubmit();
+    }
+    
+    if (onNext) {
+      onNext();
     }
   };
 

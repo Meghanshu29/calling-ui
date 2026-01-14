@@ -10,7 +10,14 @@ interface GetUsersParams {
 }
 
 export const GetUnregisterdUsers = async (params: GetUsersParams = {}) => {
-  const { status, assigned_to, auto_assign, current_user, limit = 100, offset = 0 } = params;
+  const {
+    status,
+    assigned_to,
+    auto_assign,
+    current_user,
+    limit = 100,
+    offset = 0,
+  } = params;
   const queryParams = new URLSearchParams();
 
   if (status) queryParams.append("status", status);
@@ -34,4 +41,26 @@ export const updateFeedback = async (
     status,
     feedback,
   });
+};
+
+export const getUnregisteredUsers = async (
+  status?: string,
+  assignedTo = "",
+  currentUser?: string
+) => {
+  return await ApiRequest(
+    "GET",
+    `admin/unregistered-users?status=${status}&assigned_to=${assignedTo}&auto_assign=${true}&current_user=${currentUser}&limit=${1}&offset=${0}`
+  );
+};
+
+export const getMatchedUsers = async (
+  status?: string,
+  assignedTo?: string,
+  currentUser?: string
+) => {
+  return await ApiRequest(
+    "GET",
+    `admin/matched-profiles-users?status=${status}&assigned_to=${assignedTo}&auto_assign=${true}&current_user=${currentUser}&limit=${1}&offset=${0}`
+  );
 };

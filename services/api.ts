@@ -1,8 +1,10 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+export const baseURL = "https://api.v2.production.smartmatrimony.ai/"; //production
+//export const baseURL = "https://llm.api.smartmaheshwari.com/"; //staging
 
 const getHost = async () => {
-  const host = await AsyncStorage.getItem('apiHost') || 'https://llm.api.smartmaheshwari.com/';
+  const host = baseURL;
   return host;
 };
 
