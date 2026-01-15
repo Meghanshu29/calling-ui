@@ -18,6 +18,7 @@ import { UserCard } from "../../components/UserCard";
 import {
   getMatchedUsers,
   getUnregisteredUsers,
+  sendWhatsAppMessage,
   updateFeedback,
 } from "../../endpoints/users";
 import { useToast } from "../../hooks/useToast";
@@ -134,10 +135,21 @@ export default function HomeScreen() {
   }, [loggedInUser, activeTab]);
   const fetchNextUser = async () => {
     if (!activeTab) return;
-
+    const messageData = {
+      phone_number: String(currentUser?.mobile_no),
+      name: currentUser?.name,
+      is_interested: selectedStatus == "Interested" ? 1 : 0,
+    };
     setLoadingNext(true);
     try {
       await fetchUsersByTab(activeTab);
+      if (
+        selectedStatus == "Interested" ||
+        selectedStatus == "Not Interested"
+      ) {
+        const response = await sendWhatsAppMessage(messageData);
+        console.log("Whatsapp Response=>", response);
+      }
     } finally {
       setLoadingNext(false);
     }

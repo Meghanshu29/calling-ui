@@ -65,3 +65,7 @@ export const getMatchedUsers = async (
     `admin/matched-profiles-users?status=${status}&assigned_to=${assignedTo}&auto_assign=${true}&current_user=${currentUser}&limit=${1}&offset=${0}`
   );
 };
+
+export const sendWhatsAppMessage = async (messageData: any) => {
+  return await ApiRequest("POST", `admin/send-whatsapp-message`, messageData);
+};
