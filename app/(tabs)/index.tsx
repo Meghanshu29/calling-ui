@@ -118,7 +118,7 @@ export default function HomeScreen() {
       }
       if (response?.users?.length) {
         setCurrentUser(response.users[0]);
-        console.log("Current User Response=>", response.users[0]);
+        //  console.log("Current User Response=>", response.users[0]);
       } else {
         setCurrentUser(null);
       }
@@ -191,17 +191,22 @@ export default function HomeScreen() {
     setSubmittingFeedback(true);
     try {
       if (currentUser) {
+        console.log(
+          "Payload Submit Feedback",
+          currentUser.id,
+          selectedStatus,
+          feedback
+        );
         await updateFeedback(currentUser.id, selectedStatus, feedback);
       }
-
       setSelectedStatus("");
       setFeedback("");
       setShowFeedbackModal(false);
       showSuccess("Status saved successfully!");
-
       setLoadingNext(true);
       fetchNextUser();
     } catch (error) {
+      console.log("Error updating feedback:", error);
       console.error("Error updating feedback:", error);
       showError("Failed to save feedback. Please try again.");
     } finally {

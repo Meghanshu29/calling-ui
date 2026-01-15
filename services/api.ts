@@ -44,7 +44,7 @@ export async function ApiRequest(
       }
     }
 
-    console.log("Retrieved token from storage:", authToken);
+    //console.log("Retrieved token from storage:", authToken);
     console.log("Using user ID:", userId);
 
     const isFormData = data instanceof FormData;
@@ -66,7 +66,7 @@ export async function ApiRequest(
     const finalHeaders = headers
       ? { ...headers, ...commonHeaders }
       : commonHeaders;
-    console.log("Request headers:", finalHeaders);
+    //console.log("Request headers:", finalHeaders);
 
     const response = await fetch(url, {
       method,
@@ -74,11 +74,11 @@ export async function ApiRequest(
       body: data && !isFormData ? JSON.stringify(data) : data,
     });
 
-    console.log("Response status:", response.status);
+    //console.log("Response status:", response.status);
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.log("Error response:", errorText);
+      //console.log("Error response:", errorText);
 
       // If unauthorized, clear token and redirect to login
       if (response.status === 401) {
@@ -90,7 +90,7 @@ export async function ApiRequest(
 
     return await response.json();
   } catch (error: any) {
-    console.error("API Request Error:", error);
+    //console.error("API Request Error:", error);
     throw error;
   }
 }

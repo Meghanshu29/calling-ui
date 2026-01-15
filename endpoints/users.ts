@@ -33,13 +33,15 @@ export const GetUnregisterdUsers = async (params: GetUsersParams = {}) => {
 
 export const updateFeedback = async (
   user_id: number,
-  status: string,
-  feedback: string
+  status?: string,
+  feedback?: string,
+  priority?: string
 ) => {
   return await ApiRequest("PUT", "admin/update-feedback", {
     user_id,
     status,
     feedback,
+    priority,
   });
 };
 
