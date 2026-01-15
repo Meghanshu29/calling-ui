@@ -37,20 +37,20 @@ interface User {
   updated_at: string;
 }
 
-type TabType = "unregistered_user" | "matched_user" | "incomplete_user";
+type TabType = "unregistered_user" | "matched_users" | "incomplete_user";
 
 const TABS: {
   key: TabType;
   label: string;
 }[] = [
   { key: "unregistered_user", label: "Unregistered" },
-  { key: "matched_user", label: "Matched User" },
+  { key: "matched_users", label: "Matched User" },
   { key: "incomplete_user", label: "Incomplete User" },
 ];
 export default function HomeScreen() {
   const [activeTab, setActiveTab] = useState<TabType>("unregistered_user");
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [selectedStatus, setSelectedStatus] = useState("");
+  const [selectedStatus, setSelectedStatus] = useState("pending");
   const [feedback, setFeedback] = useState("");
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [submittingFeedback, setSubmittingFeedback] = useState(false);
@@ -95,7 +95,7 @@ export default function HomeScreen() {
           );
           break;
 
-        case "matched_user":
+        case "matched_users":
           response = await getUnregisteredUsers(
             activeTab,
             selectedStatus,

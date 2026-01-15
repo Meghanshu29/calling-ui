@@ -303,7 +303,7 @@ export const UserCard: React.FC<UserCardProps> = ({
                 { color: isDark ? "#f8fafc" : "#0f172a" },
               ]}
             >
-              {selectedStatus || "Select status..."}
+              {selectedStatus && selectedStatus !== "pending" ? selectedStatus : "Select status..."}
             </Text>
             <Ionicons
               name="chevron-down"
