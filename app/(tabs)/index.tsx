@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Modal,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -35,10 +36,18 @@ interface User {
   updated_at: string;
 }
 
+type TabType = "unregistered_user" | "matched_user" | "incomplete_user";
+
+const TABS: {
+  key: TabType;
+  label: string;
+}[] = [
+  { key: "unregistered_user", label: "Unregistered" },
+  { key: "matched_user", label: "Matched User" },
+  { key: "incomplete_user", label: "Incomplete User" },
+];
 export default function HomeScreen() {
-  const [activeTab, setActiveTab] = useState<"unregistered" | "matched" | null>(
-    "unregistered"
-  );
+  const [activeTab, setActiveTab] = useState<TabType>("unregistered_user");
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [selectedStatus, setSelectedStatus] = useState("");
   const [feedback, setFeedback] = useState("");
@@ -55,12 +64,6 @@ export default function HomeScreen() {
     loadUserInfo();
   }, []);
 
-  useEffect(() => {
-    if (loggedInUser && activeTab === "unregistered") {
-      fetchNextUser();
-    }
-  }, [loggedInUser]);
-
   const loadUserInfo = async () => {
     try {
       const userInfo = await AsyncStorage.getItem("userInfo");
@@ -76,31 +79,69 @@ export default function HomeScreen() {
       setLoggedInUser("ADMIN");
     }
   };
-
-  const fetchNextUser = async () => {
-    if (!activeTab) return;
-    setLoadingNext(true);
+  const fetchUsersByTab = async (tab: TabType) => {
+    setLoading(true);
+    setCurrentUser(null);
     try {
       let response;
-      if (activeTab === "unregistered") {
-        response = await getUnregisteredUsers(selectedStatus, "", loggedInUser);
-      } else {
-        response = await getMatchedUsers(selectedStatus, "", loggedInUser);
-      }
+      switch (tab) {
+        case "unregistered_user":
+          response = await getUnregisteredUsers(
+            activeTab,
+            selectedStatus,
+            "",
+            loggedInUser
+          );
+          break;
 
-      if (response.users && response.users.length > 0) {
+        case "matched_user":
+          response = await getUnregisteredUsers(
+            activeTab,
+            selectedStatus,
+            "",
+            loggedInUser
+          );
+          break;
+
+        case "incomplete_user":
+          response = await getUnregisteredUsers(
+            activeTab,
+            selectedStatus,
+            "",
+            loggedInUser
+          );
+          break;
+
+        default:
+          return;
+      }
+      if (response?.users?.length) {
         setCurrentUser(response.users[0]);
       } else {
         setCurrentUser(null);
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error fetching user:", error);
       showError("Failed to load contact");
+    } finally {
+      setLoading(false);
+    }
+  };
+  useEffect(() => {
+    if (loggedInUser && activeTab) {
+      fetchUsersByTab(activeTab);
+    }
+  }, [loggedInUser, activeTab]);
+  const fetchNextUser = async () => {
+    if (!activeTab) return;
+
+    setLoadingNext(true);
+    try {
+      await fetchUsersByTab(activeTab);
     } finally {
       setLoadingNext(false);
     }
   };
-
   const handleSubmitFeedback = () => {
     if (!selectedStatus) {
       showError("Please select a call status before proceeding");
@@ -108,7 +149,6 @@ export default function HomeScreen() {
     }
     setShowFeedbackModal(true);
   };
-
   const handleSkipFeedback = async () => {
     try {
       if (currentUser) {
@@ -129,7 +169,6 @@ export default function HomeScreen() {
       showError("Failed to save feedback. Please try again.");
     }
   };
-
   const handleFeedbackSubmit = async () => {
     if (!feedback.trim()) {
       showError("Please enter feedback before proceeding");
@@ -156,7 +195,6 @@ export default function HomeScreen() {
       setSubmittingFeedback(false);
     }
   };
-
   return (
     <LinearGradient
       colors={
@@ -171,116 +209,47 @@ export default function HomeScreen() {
           Calling Dashboard
         </Text>
 
-        <View style={styles.tabContainer}>
-          <TouchableOpacity
-            style={[
-              styles.tab,
-              activeTab === "unregistered" && styles.activeTab,
-              {
-                backgroundColor:
-                  activeTab === "unregistered"
-                    ? "#3b82f6"
-                    : isDark
-                    ? "#334155"
-                    : "#e2e8f0",
-              },
-            ]}
-            onPress={async () => {
-              setActiveTab("unregistered");
-              setLoading(true);
-              setCurrentUser(null);
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.tabScrollContainer}
+        >
+          {TABS.map((tab) => {
+            const isActive = activeTab === tab.key;
 
-              try {
-                const response = await getUnregisteredUsers(
-                  selectedStatus,
-                  "",
-                  loggedInUser
-                );
-                if (response.users && response.users.length > 0) {
-                  setCurrentUser(response.users[0]);
-                } else {
-                  setCurrentUser(null);
-                }
-              } catch (error: any) {
-                console.error("Error fetching user:", error);
-                showError("Failed to load contact");
-              } finally {
-                setLoading(false);
-              }
-            }}
-          >
-            <Text
-              style={[
-                styles.tabText,
-                {
-                  color:
-                    activeTab === "unregistered"
-                      ? "#ffffff"
+            return (
+              <TouchableOpacity
+                key={tab.key}
+                style={[
+                  styles.tab,
+                  {
+                    backgroundColor: isActive
+                      ? "#3b82f6"
                       : isDark
-                      ? "#94a3b8"
-                      : "#64748b",
-                },
-              ]}
-            >
-              Unregistered
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[
-              styles.tab,
-              activeTab === "matched" && styles.activeTab,
-              {
-                backgroundColor:
-                  activeTab === "matched"
-                    ? "#3b82f6"
-                    : isDark
-                    ? "#334155"
-                    : "#e2e8f0",
-              },
-            ]}
-            onPress={async () => {
-              setActiveTab("matched");
-              setLoading(true);
-              setCurrentUser(null);
-
-              try {
-                const response = await getMatchedUsers(
-                  selectedStatus,
-                  "",
-                  loggedInUser
-                );
-
-                if (response.users && response.users.length > 0) {
-                  setCurrentUser(response.users[0]);
-                } else {
-                  setCurrentUser(null);
-                }
-              } catch (error) {
-                console.error("Error fetching user:", error);
-                showError("Failed to load contact");
-              } finally {
-                setLoading(false);
-              }
-            }}
-          >
-            <Text
-              style={[
-                styles.tabText,
-                {
-                  color:
-                    activeTab === "matched"
-                      ? "#ffffff"
-                      : isDark
-                      ? "#94a3b8"
-                      : "#64748b",
-                },
-              ]}
-            >
-              Matched User
-            </Text>
-          </TouchableOpacity>
-        </View>
+                      ? "#334155"
+                      : "#e2e8f0",
+                  },
+                ]}
+                onPress={() => setActiveTab(tab.key)}
+              >
+                <Text
+                  style={[
+                    styles.tabText,
+                    {
+                      color: isActive
+                        ? "#ffffff"
+                        : isDark
+                        ? "#94a3b8"
+                        : "#64748b",
+                    },
+                  ]}
+                >
+                  {tab.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
 
         {loadingNext && (
           <View
@@ -444,10 +413,23 @@ const styles = StyleSheet.create({
     gap: 12,
     marginBottom: 16,
   },
+  // tab: {
+  //   paddingVertical: 10,
+  //   paddingHorizontal: 24,
+  //   borderRadius: 20,
+  // },
+  tabScrollContainer: {
+    paddingHorizontal: 12,
+    gap: 8, // React Native 0.71+
+  },
+
   tab: {
+    paddingHorizontal: 16,
     paddingVertical: 10,
-    paddingHorizontal: 24,
     borderRadius: 20,
+    minWidth: 120,
+    alignItems: "center",
+    justifyContent: "center",
   },
   activeTab: {
     shadowColor: "#3b82f6",
