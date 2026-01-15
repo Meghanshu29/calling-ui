@@ -20,10 +20,12 @@ const parseMatches = (instruction: string): { matches: Match[]; userId: string }
   const matches: Match[] = [];
   let userId = '';
 
+  if (!instruction) return { matches, userId };
+
   const userIdMatch = instruction.match(/ID:\s*([^\s]+)/);
   if (userIdMatch) userId = userIdMatch[1];
 
-  const matchPattern = /([^(]+)\s*\(Score:(\d+),\s*Gunn:(\d+)\)/g;
+  const matchPattern = /([^(,]+)\s*\(Score:(\d+),\s*Gunn:(\d+)\)/g;
   let match;
   while ((match = matchPattern.exec(instruction)) !== null) {
     matches.push({
@@ -38,6 +40,11 @@ const parseMatches = (instruction: string): { matches: Match[]; userId: string }
 
 export const MatchDetailsModal: React.FC<MatchDetailsModalProps> = ({ visible, onClose, instruction, isDark }) => {
   const { matches, userId } = parseMatches(instruction);
+  
+  const sortedMatches = [...matches].sort((a, b) => {
+    if (b.score !== a.score) return b.score - a.score;
+    return b.gunn - a.gunn;
+  });
 
   return (
     <Modal visible={visible} transparent animationType="slide">
@@ -63,7 +70,7 @@ export const MatchDetailsModal: React.FC<MatchDetailsModalProps> = ({ visible, o
           )}
 
           <ScrollView style={styles.matchList}>
-            {matches.map((match, index) => (
+            {sortedMatches.map((match, index) => (
               <View key={index} style={[styles.matchCard, { backgroundColor: isDark ? '#334155' : '#f0f9ff' }]}>
                 <Text style={[styles.matchName, { color: isDark ? '#f8fafc' : '#0f172a' }]}>
                   {match.name}

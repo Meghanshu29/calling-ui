@@ -1,18 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, useColorScheme, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, useColorScheme } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CustomPopup } from '../../components/CustomPopup';
-import { getCustomerSupportUsers } from '../../endpoints/users';
 
 export default function SettingsScreen() {
   const [showLogoutPopup, setShowLogoutPopup] = useState(false);
   const [showUserDetails, setShowUserDetails] = useState(false);
   const [userInfo, setUserInfo] = useState<any>(null);
-  const [supportUsers, setSupportUsers] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const router = useRouter();
@@ -29,19 +26,6 @@ export default function SettingsScreen() {
       }
     } catch (error) {
       console.error('Error loading user info:', error);
-    }
-  };
-
-  const loadSupportUsers = async () => {
-    setLoading(true);
-    try {
-      const response = await getCustomerSupportUsers();
-      setSupportUsers(response.users || []);
-      setShowUserDetails(true);
-    } catch (error) {
-      console.error('Error loading support users:', error);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -95,18 +79,13 @@ export default function SettingsScreen() {
             styles.settingItem,
             { backgroundColor: isDark ? '#1e293b' : '#ffffff' }
           ]}
-          onPress={loadSupportUsers}
-          disabled={loading}
+          onPress={() => setShowUserDetails(true)}
         >
           <View style={styles.settingLeft}>
-            <Ionicons name="people-outline" size={24} color={isDark ? '#60a5fa' : '#3b82f6'} />
+            <Ionicons name="person-outline" size={24} color={isDark ? '#60a5fa' : '#3b82f6'} />
             <Text style={[styles.settingText, { color: isDark ? '#f8fafc' : '#0f172a' }]}>User Details</Text>
           </View>
-          {loading ? (
-            <ActivityIndicator size="small" color={isDark ? '#60a5fa' : '#3b82f6'} />
-          ) : (
-            <Ionicons name="chevron-forward" size={20} color={isDark ? '#94a3b8' : '#64748b'} />
-          )}
+          <Ionicons name="chevron-forward" size={20} color={isDark ? '#94a3b8' : '#64748b'} />
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -146,7 +125,7 @@ export default function SettingsScreen() {
 
       <CustomPopup
         visible={showUserDetails}
-        title="Telecaller Users"
+        title="My Details"
         message=""
         type="info"
         buttons={[
@@ -158,16 +137,56 @@ export default function SettingsScreen() {
         ]}
         onClose={() => setShowUserDetails(false)}
       >
-        <ScrollView style={styles.userList}>
-          {supportUsers.map((user, index) => (
-            <View key={index} style={[styles.userDetailCard, { backgroundColor: isDark ? '#334155' : '#f0f9ff' }]}>
-              <Text style={[styles.userDetailName, { color: isDark ? '#f8fafc' : '#0f172a' }]}>{user.username}</Text>
-              <Text style={[styles.userDetailText, { color: isDark ? '#94a3b8' : '#64748b' }]}>📧 {user.email}</Text>
-              <Text style={[styles.userDetailText, { color: isDark ? '#94a3b8' : '#64748b' }]}>📱 {user.phone}</Text>
-              <Text style={[styles.userDetailText, { color: isDark ? '#94a3b8' : '#64748b' }]}>ID: {user.admin_id}</Text>
+        {userInfo && (
+          <View style={styles.detailsContainer}>
+            <LinearGradient
+              colors={isDark ? ['#334155', '#475569'] : ['#dbeafe', '#bfdbfe']}
+              style={styles.avatarCircle}
+            >
+              <Text style={styles.avatarLetter}>{userInfo.username?.charAt(0).toUpperCase()}</Text>
+            </LinearGradient>
+            
+            <View style={[styles.infoRow, { borderBottomColor: isDark ? '#475569' : '#e5e7eb' }]}>
+              <View style={styles.iconWrapper}>
+                <Ionicons name="person" size={20} color={isDark ? '#60a5fa' : '#3b82f6'} />
+              </View>
+              <View style={styles.infoContent}>
+                <Text style={[styles.infoLabel, { color: isDark ? '#94a3b8' : '#6b7280' }]}>Username</Text>
+                <Text style={[styles.infoValue, { color: isDark ? '#f8fafc' : '#0f172a' }]}>{userInfo.username}</Text>
+              </View>
             </View>
-          ))}
-        </ScrollView>
+
+            <View style={[styles.infoRow, { borderBottomColor: isDark ? '#475569' : '#e5e7eb' }]}>
+              <View style={styles.iconWrapper}>
+                <Ionicons name="mail" size={20} color={isDark ? '#60a5fa' : '#3b82f6'} />
+              </View>
+              <View style={styles.infoContent}>
+                <Text style={[styles.infoLabel, { color: isDark ? '#94a3b8' : '#6b7280' }]}>Email</Text>
+                <Text style={[styles.infoValue, { color: isDark ? '#f8fafc' : '#0f172a' }]}>{userInfo.email}</Text>
+              </View>
+            </View>
+
+            <View style={[styles.infoRow, { borderBottomColor: isDark ? '#475569' : '#e5e7eb' }]}>
+              <View style={styles.iconWrapper}>
+                <Ionicons name="id-card" size={20} color={isDark ? '#60a5fa' : '#3b82f6'} />
+              </View>
+              <View style={styles.infoContent}>
+                <Text style={[styles.infoLabel, { color: isDark ? '#94a3b8' : '#6b7280' }]}>Admin ID</Text>
+                <Text style={[styles.infoValue, { color: isDark ? '#f8fafc' : '#0f172a' }]}>{userInfo.admin_id}</Text>
+              </View>
+            </View>
+
+            <View style={styles.infoRow}>
+              <View style={styles.iconWrapper}>
+                <Ionicons name="shield-checkmark" size={20} color={isDark ? '#60a5fa' : '#3b82f6'} />
+              </View>
+              <View style={styles.infoContent}>
+                <Text style={[styles.infoLabel, { color: isDark ? '#94a3b8' : '#6b7280' }]}>Role</Text>
+                <Text style={[styles.infoValue, { color: isDark ? '#f8fafc' : '#0f172a' }]}>{userInfo.role}</Text>
+              </View>
+            </View>
+          </View>
+        )}
       </CustomPopup>
     </LinearGradient>
   );
@@ -238,22 +257,44 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
   },
-  userList: {
-    maxHeight: 300,
-    marginTop: 16,
+  detailsContainer: {
+    marginTop: 20,
+    alignItems: 'center',
   },
-  userDetailCard: {
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 8,
+  avatarCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 24,
   },
-  userDetailName: {
-    fontSize: 16,
+  avatarLetter: {
+    fontSize: 36,
     fontWeight: '700',
+    color: '#ffffff',
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+  },
+  iconWrapper: {
+    width: 40,
+    alignItems: 'center',
+  },
+  infoContent: {
+    flex: 1,
+  },
+  infoLabel: {
+    fontSize: 12,
+    fontWeight: '600',
     marginBottom: 4,
   },
-  userDetailText: {
-    fontSize: 14,
-    marginBottom: 2,
+  infoValue: {
+    fontSize: 16,
+    fontWeight: '500',
   },
 });

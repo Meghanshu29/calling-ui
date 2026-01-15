@@ -291,7 +291,7 @@ export const UserCard: React.FC<UserCardProps> = ({
               { color: isDark ? "#e2e8f0" : "#374151" },
             ]}
           >
-            {user.instruction}
+            {user.tag === "matched_users" ? "Click 'User Details' to view matches" : user.instruction}
           </Text>
         </View>
 
