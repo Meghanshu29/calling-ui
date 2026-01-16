@@ -45,7 +45,7 @@ export async function ApiRequest(
     }
 
     //console.log("Retrieved token from storage:", authToken);
-    console.log("Using user ID:", userId);
+    //console.log("Using user ID:", userId);
 
     const isFormData = data instanceof FormData;
     const commonHeaders = isFormData

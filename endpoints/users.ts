@@ -50,6 +50,7 @@ export const getUnregisteredUsers = async (
   status?: string,
   currentUser?: string
 ) => {
+  if(status=="pending"){console.log("Pending Status Payload=>",status,currentUser,tag)}
   return await ApiRequest(
     "GET",
     `admin/unregistered-users?tag=${tag}&status=${status}&assigned_to=${currentUser}&auto_assign=${true}&current_user=${currentUser}&limit=${1}&offset=${0}`

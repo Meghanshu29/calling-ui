@@ -16,7 +16,6 @@ import {
 import { Toast } from "../../components/Toast";
 import { UserCard } from "../../components/UserCard";
 import {
-  getMatchedUsers,
   getUnregisteredUsers,
   sendWhatsAppMessage,
   updateFeedback,
@@ -104,12 +103,6 @@ export default function HomeScreen() {
           break;
 
         case "incomplete_user":
-          console.log(
-            "Fetching incomplete users",
-            activeTab,
-            selectedStatus,
-            loggedInUser
-          );
           response = await getUnregisteredUsers(
             activeTab,
             selectedStatus,
@@ -124,7 +117,6 @@ export default function HomeScreen() {
       console.log("Response Users=>", response);
       if (response?.users?.length) {
         setCurrentUser(response.users[0]);
-        //  console.log("Current User Response=>", response.users[0]);
       } else {
         setCurrentUser(null);
       }
@@ -136,10 +128,27 @@ export default function HomeScreen() {
     }
   };
   useEffect(() => {
+    const fetchData = async () => {
+      if (loggedInUser && activeTab && selectedStatus === "") {
+        const response = await getUnregisteredUsers(
+          activeTab,
+          "pending",
+          loggedInUser
+        );
+        if (response?.users?.length) {
+          setCurrentUser(response.users[0]);
+        } else {
+          setCurrentUser(null);
+        }
+      }
+    };
+    
     if (loggedInUser && activeTab) {
       fetchUsersByTab(activeTab);
     }
+    fetchData();
   }, [loggedInUser, activeTab]);
+
   const fetchNextUser = async () => {
     if (!activeTab) return;
     const messageData = {
@@ -157,6 +166,17 @@ export default function HomeScreen() {
         const response = await sendWhatsAppMessage(messageData);
         console.log("Whatsapp Response=>", response);
       }
+      const response = await getUnregisteredUsers(
+        activeTab,
+        "pending",
+        loggedInUser
+      );
+      if (response?.users?.length) {
+        setCurrentUser(response.users[0]);
+      } else {
+        setCurrentUser(null);
+      }
+      setSelectedStatus("");
     } finally {
       setLoadingNext(false);
     }
@@ -177,10 +197,18 @@ export default function HomeScreen() {
           "Auto-skipped for " + selectedStatus
         );
       }
-
+      const response = await getUnregisteredUsers(
+        activeTab,
+        "pending",
+        loggedInUser
+      );
+      if (response?.users?.length) {
+        setCurrentUser(response.users[0]);
+      } else {
+        setCurrentUser(null);
+      }
       setSelectedStatus("");
       showSuccess("Status saved successfully!");
-
       setLoadingNext(true);
       fetchNextUser();
     } catch (error) {
@@ -193,23 +221,25 @@ export default function HomeScreen() {
       showError("Please enter feedback before proceeding");
       return;
     }
-
     setSubmittingFeedback(true);
     try {
       if (currentUser) {
-        console.log(
-          "Payload Submit Feedback",
-          currentUser.id,
-          selectedStatus,
-          feedback,
-          currentUser.priority
-        );
         await updateFeedback(
           currentUser.id,
           selectedStatus,
           feedback,
           currentUser.priority
         );
+      }
+      const response = await getUnregisteredUsers(
+        activeTab,
+        "pending",
+        loggedInUser
+      );
+      if (response?.users?.length) {
+        setCurrentUser(response.users[0]);
+      } else {
+        setCurrentUser(null);
       }
       setSelectedStatus("");
       setFeedback("");

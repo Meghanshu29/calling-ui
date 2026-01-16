@@ -98,7 +98,9 @@ export const UserCard: React.FC<UserCardProps> = ({
 
     if (
       selectedStatus === "Interested" ||
-      selectedStatus === "Busy Call Later"
+      selectedStatus === "Busy Call Later"||
+      selectedStatus === "Declined"||
+      selectedStatus === "Not Serious"
     ) {
       onSkip();
     } else {
