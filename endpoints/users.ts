@@ -48,12 +48,11 @@ export const updateFeedback = async (
 export const getUnregisteredUsers = async (
   tag: any,
   status?: string,
-  assignedTo = "",
   currentUser?: string
 ) => {
   return await ApiRequest(
     "GET",
-    `admin/unregistered-users?tag=${tag}&status=${status}&assigned_to=${assignedTo}&auto_assign=${true}&current_user=${currentUser}&limit=${1}&offset=${0}`
+    `admin/unregistered-users?tag=${tag}&status=${status}&assigned_to=${currentUser}&auto_assign=${true}&current_user=${currentUser}&limit=${1}&offset=${0}`
   );
 };
 

@@ -291,17 +291,33 @@ export const UserCard: React.FC<UserCardProps> = ({
               { color: isDark ? "#e2e8f0" : "#374151" },
             ]}
           >
-            {user.tag === "matched_users" ? "Click 'User Details' to view matches" : user.instruction}
+            {user.tag === "matched_users"
+              ? "Click 'User Details' to view matches"
+              : user.instruction}
           </Text>
         </View>
 
         {user.tag === "matched_users" && (
           <TouchableOpacity
-            style={[styles.detailsBtn, { backgroundColor: isDark ? "#475569" : "#e0f2fe" }]}
+            style={[
+              styles.detailsBtn,
+              { backgroundColor: isDark ? "#475569" : "#e0f2fe" },
+            ]}
             onPress={() => setShowMatchDetails(true)}
           >
-            <Ionicons name="information-circle" size={20} color={isDark ? "#60a5fa" : "#3b82f6"} />
-            <Text style={[styles.detailsBtnText, { color: isDark ? "#60a5fa" : "#3b82f6" }]}>User Details</Text>
+            <Ionicons
+              name="information-circle"
+              size={20}
+              color={isDark ? "#60a5fa" : "#3b82f6"}
+            />
+            <Text
+              style={[
+                styles.detailsBtnText,
+                { color: isDark ? "#60a5fa" : "#3b82f6" },
+              ]}
+            >
+              User Details
+            </Text>
           </TouchableOpacity>
         )}
 
@@ -618,9 +634,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   detailsBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     padding: 12,
     borderRadius: 12,
     marginBottom: 16,
@@ -628,6 +644,6 @@ const styles = StyleSheet.create({
   },
   detailsBtnText: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
 });

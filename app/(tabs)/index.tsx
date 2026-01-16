@@ -35,6 +35,7 @@ interface User {
   is_processed: boolean;
   created_at: string;
   updated_at: string;
+  priority: string;
 }
 
 type TabType = "unregistered_user" | "matched_users" | "incomplete_user";
@@ -90,7 +91,6 @@ export default function HomeScreen() {
           response = await getUnregisteredUsers(
             activeTab,
             selectedStatus,
-            "",
             loggedInUser
           );
           break;
@@ -99,23 +99,29 @@ export default function HomeScreen() {
           response = await getUnregisteredUsers(
             activeTab,
             selectedStatus,
-            "",
             loggedInUser
           );
           break;
 
         case "incomplete_user":
+          console.log(
+            "Fetching incomplete users",
+            activeTab,
+            selectedStatus,
+            loggedInUser
+          );
           response = await getUnregisteredUsers(
             activeTab,
             selectedStatus,
-            "",
             loggedInUser
           );
+
           break;
 
         default:
           return;
       }
+      console.log("Response Users=>", response);
       if (response?.users?.length) {
         setCurrentUser(response.users[0]);
         //  console.log("Current User Response=>", response.users[0]);
@@ -195,9 +201,15 @@ export default function HomeScreen() {
           "Payload Submit Feedback",
           currentUser.id,
           selectedStatus,
-          feedback
+          feedback,
+          currentUser.priority
         );
-        await updateFeedback(currentUser.id, selectedStatus, feedback);
+        await updateFeedback(
+          currentUser.id,
+          selectedStatus,
+          feedback,
+          currentUser.priority
+        );
       }
       setSelectedStatus("");
       setFeedback("");
