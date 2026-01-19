@@ -25,6 +25,13 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="others"
+        options={{
+          title: 'Others',
+          tabBarIcon: ({ color }) => <Ionicons name="ellipsis-horizontal" size={24} color={color} />,
+        }}
+      />
+      <Tabs.Screen
         name="settings"
         options={{
           title: 'Settings',
