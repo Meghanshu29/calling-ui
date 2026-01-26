@@ -9,6 +9,7 @@ import "react-native-reanimated";
 import { useEffect } from "react";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import * as Updates from "expo-updates";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { AuthProvider } from "../contexts/AuthContext";
 export const unstable_settings = {
   anchor: "login",
@@ -21,6 +22,10 @@ export default function RootLayout() {
       try {
         const update = await Updates.checkForUpdateAsync();
         if (update.isAvailable) {
+          // Auto-logout user when update is available
+          await AsyncStorage.multiRemove(['authToken', 'userInfo', 'savedUserId', 'savedPassword', 'rememberMe']);
+          console.log('Update available - user logged out automatically');
+          
           await Updates.fetchUpdateAsync();
           await Updates.reloadAsync();
         }
