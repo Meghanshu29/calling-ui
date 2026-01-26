@@ -1,23 +1,21 @@
-import React, { useState, useRef, useEffect } from "react";
+import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { useEffect, useRef, useState } from "react";
 import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   StatusBar,
-  SafeAreaView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
   useColorScheme,
+  View
 } from "react-native";
-import { useRouter, useLocalSearchParams } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { GradientButton } from "../components/GradientButton";
-import { loginWithOtp } from "../endpoints/auth";
 import { Toast } from "../components/Toast";
+import { loginWithOtp } from "../endpoints/auth";
 import { useToast } from "../hooks/useToast";
 
 export default function OTPScreen() {
@@ -142,7 +140,7 @@ export default function OTPScreen() {
   };
 
   return (
-    <SafeAreaView
+    <View
       style={[
         styles.container,
         { backgroundColor: isDark ? "#0f172a" : "#ffffff" },
@@ -267,7 +265,7 @@ export default function OTPScreen() {
         visible={toast.visible}
         onHide={hideToast}
       />
-    </SafeAreaView>
+    </View>
   );
 }
 

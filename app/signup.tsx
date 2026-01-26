@@ -1,24 +1,23 @@
-import React, { useState } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
+import { useState } from 'react';
 import {
-  View,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  StyleSheet,
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  StatusBar,
   useColorScheme,
-  ScrollView,
-  SafeAreaView,
+  View
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
 import { GradientButton } from '../components/GradientButton';
-import { signup, requestOtp } from '../endpoints/auth';
 import { Toast } from '../components/Toast';
+import { requestOtp, signup } from '../endpoints/auth';
 import { useToast } from '../hooks/useToast';
 
 const lightTheme = {
@@ -178,7 +177,7 @@ export default function SignupScreen() {
   const theme = isDark ? darkTheme : lightTheme;
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
       <KeyboardAvoidingView 
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -378,7 +377,7 @@ export default function SignupScreen() {
         onHide={hideToast}
       />
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </View>
   );
 }
 
