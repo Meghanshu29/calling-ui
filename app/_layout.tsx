@@ -1,4 +1,5 @@
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   DarkTheme,
   DefaultTheme,
@@ -22,6 +23,10 @@ export default function RootLayout() {
       try {
         const update = await Updates.checkForUpdateAsync();
         if (update.isAvailable) {
+          // Auto-logout user when update is available
+          await AsyncStorage.multiRemove(['authToken', 'userInfo', 'savedUserId', 'savedPassword', 'rememberMe']);
+          console.log('Update available - user logged out automatically');
+          
           await Updates.fetchUpdateAsync();
           await Updates.reloadAsync();
         }
