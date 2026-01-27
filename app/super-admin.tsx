@@ -95,6 +95,13 @@ export default function SuperAdminScreen() {
         const parsedUser = JSON.parse(userInfo);
         const username = parsedUser.username || parsedUser.email;
         setLoggedInUser(username);
+        
+        // Check if user is super admin
+        if (parsedUser.role !== 'super_admin') {
+          showError('Access denied. Super admin role required.');
+          logout();
+          return;
+        }
       } else {
         setLoggedInUser("ADMIN");
       }
@@ -260,6 +267,44 @@ export default function SuperAdminScreen() {
     showSuccess(
       hasFilters ? "Filters applied" : "Filters cleared",
     );
+  };
+
+  const renderUserItem = ({ item }: { item: User }) => (
+    <TouchableOpacity
+      style={[styles.userItem, { backgroundColor: isDark ? "#1e293b" : "#ffffff" }]}
+      onPress={() => handleUserPress(item)}
+    >
+      <View style={styles.userHeader}>
+        <LinearGradient
+          colors={["#3b82f6", "#8b5cf6"]}
+          style={styles.avatar}
+        >
+          <Text style={styles.avatarText}>
+            {item.name.charAt(0).toUpperCase()}
+          </Text>
+        </LinearGradient>
+        <View style={styles.userInfo}>
+          <Text style={[styles.userName, { color: isDark ? "#f8fafc" : "#0f172a" }]}>
+            {item.name}
+          </Text>
+          <Text style={[styles.userPhone, { color: isDark ? "#94a3b8" : "#64748b" }]}>
+            {item.mobile_no || "No phone"}
+          </Text>
+          <Text style={[styles.userStatus, { color: getStatusColor(item.status) }]}>
+            {item.status} • {item.assigned_to}
+          </Text>
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+
+  const getStatusColor = (status: string) => {
+    switch (status.toLowerCase()) {
+      case "pending": return "#f59e0b";
+      case "interested": return "#22c55e";
+      case "not interested": return "#ef4444";
+      default: return "#6b7280";
+    }
   };
 
   return (
