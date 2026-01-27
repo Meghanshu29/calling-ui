@@ -1,22 +1,24 @@
+import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  useColorScheme,
-  View,
   ActivityIndicator,
   FlatList,
   Linking,
+  ScrollView,
+  StyleSheet,
+  Text,
   TextInput,
+  TouchableOpacity,
+  useColorScheme,
+  View,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
-import { getEscalatedUsers, getNotSeriousUsers, getDeclinedUsers, getBusyCallLaterUsers, getInterestedUsers, getNotInterestedUsers, getMarriedEngagedUsers, getCompleteSoonUsers, getNeedHelpUsers, getInterestedNotRegisteredUsers } from "../../endpoints/users";
-import { useToast } from "../../hooks/useToast";
 import { Toast } from "../../components/Toast";
 import { UserDetailsModal } from "../../components/UserDetailsModal";
+import { getAssignmentStats } from "../../endpoints/stats";
+import { getBusyCallLaterUsers, getCompleteSoonUsers, getDeclinedUsers, getEscalatedUsers, getInterestedNotRegisteredUsers, getInterestedUsers, getMarriedEngagedUsers, getNeedHelpUsers, getNotInterestedUsers, getNotSeriousUsers, getStatesAndCities } from "../../endpoints/users";
+import { useToast } from "../../hooks/useToast";
 
 type SubTabType = "Busy Call Later" | "Declined" | "Not Serious" | "Escalate to Sonia" | "Interested" | "Not Interested" | "Interested Not Registered" | "Married/Engaged" | "Complete Soon" | "Need Help completing";
 
@@ -54,6 +56,19 @@ const SUB_TABS: {
 export default function OthersScreen() {
   const [activeSubTab, setActiveSubTab] = useState<SubTabType>("Busy Call Later");
   const [searchQuery, setSearchQuery] = useState("");
+  const [activeAgent, setActiveAgent] = useState<string | null>(null);
+  const [agents, setAgents] = useState<string[]>([]);
+  const [showAgentDropdown, setShowAgentDropdown] = useState(false);
+  
+  // Location Filter State
+  const [availableStates, setAvailableStates] = useState<string[]>([]);
+  const [availableCities, setAvailableCities] = useState<string[]>([]);
+  const [selectedState, setSelectedState] = useState<string | null>(null);
+  const [selectedCity, setSelectedCity] = useState<string | null>(null);
+  const [showStateDropdown, setShowStateDropdown] = useState(false);
+  const [showCityDropdown, setShowCityDropdown] = useState(false);
+
+  const [userRole, setUserRole] = useState<string | null>(null);
   const [escalatedUsers, setEscalatedUsers] = useState<User[]>([]);
   const [notSeriousUsers, setNotSeriousUsers] = useState<User[]>([]);
   const [declinedUsers, setDeclinedUsers] = useState<User[]>([]);
@@ -71,10 +86,56 @@ export default function OthersScreen() {
   const isDark = colorScheme === "dark";
   const { toast, showError, hideToast } = useToast();
 
+  const fetchAgents = async () => {
+    try {
+      const response = await getAssignmentStats();
+      if (response && Array.isArray(response.data)) {
+        const agentNames = response.data.map(stat => stat.assigned_to).filter(Boolean);
+        setAgents(agentNames);
+      }
+    } catch (error) {
+      console.error('Error fetching agents:', error);
+    }
+  };
+
+  const fetchLocationData = async () => {
+    try {
+      const response = await getStatesAndCities();
+      if (response && response.success && response.data) {
+        setAvailableStates(response.data.states || []);
+        setAvailableCities(response.data.cities || []);
+      }
+    } catch (error) {
+      console.error('Error fetching location data:', error);
+    }
+  };
+
+  useEffect(() => {
+    const loadUserRole = async () => {
+      try {
+        const userInfo = await AsyncStorage.getItem("userInfo");
+        if (userInfo) {
+          const parsedUser = JSON.parse(userInfo);
+          setUserRole(parsedUser.role);
+          
+          // Only fetch agents & location if user is super admin
+          if (parsedUser.role === 'SUPER_ADMIN') {
+            fetchAgents();
+            fetchLocationData();
+          }
+        }
+      } catch (error) {
+        console.error("Error loading user info:", error);
+      }
+    };
+    
+    loadUserRole();
+  }, []);
+
   const fetchEscalatedUsers = async () => {
     setLoading(true);
     try {
-      const response = await getEscalatedUsers();
+      const response = await getEscalatedUsers(selectedState || undefined, selectedCity || undefined);
       setEscalatedUsers(response.users || []);
     } catch (error) {
       console.error("Error fetching escalated users:", error);
@@ -87,7 +148,7 @@ export default function OthersScreen() {
   const fetchNotSeriousUsers = async () => {
     setLoading(true);
     try {
-      const response = await getNotSeriousUsers();
+      const response = await getNotSeriousUsers(selectedState || undefined, selectedCity || undefined);
       setNotSeriousUsers(response.users || []);
     } catch (error) {
       console.error("Error fetching not serious users:", error);
@@ -100,7 +161,7 @@ export default function OthersScreen() {
   const fetchDeclinedUsers = async () => {
     setLoading(true);
     try {
-      const response = await getDeclinedUsers();
+      const response = await getDeclinedUsers(selectedState || undefined, selectedCity || undefined);
       setDeclinedUsers(response.users || []);
     } catch (error) {
       console.error("Error fetching declined users:", error);
@@ -113,7 +174,7 @@ export default function OthersScreen() {
   const fetchBusyCallLaterUsers = async () => {
     setLoading(true);
     try {
-      const response = await getBusyCallLaterUsers();
+      const response = await getBusyCallLaterUsers(selectedState || undefined, selectedCity || undefined);
       setBusyCallLaterUsers(response.users || []);
     } catch (error) {
       console.error("Error fetching busy call later users:", error);
@@ -126,7 +187,7 @@ export default function OthersScreen() {
   const fetchInterestedUsers = async () => {
     setLoading(true);
     try {
-      const response = await getInterestedUsers();
+      const response = await getInterestedUsers(selectedState || undefined, selectedCity || undefined);
       setInterestedUsers(response.users || []);
     } catch (error) {
       console.error("Error fetching interested users:", error);
@@ -139,7 +200,7 @@ export default function OthersScreen() {
   const fetchNotInterestedUsers = async () => {
     setLoading(true);
     try {
-      const response = await getNotInterestedUsers();
+      const response = await getNotInterestedUsers(selectedState || undefined, selectedCity || undefined);
       setNotInterestedUsers(response.users || []);
     } catch (error) {
       console.error("Error fetching not interested users:", error);
@@ -152,7 +213,7 @@ export default function OthersScreen() {
   const fetchMarriedEngagedUsers = async () => {
     setLoading(true);
     try {
-      const response = await getMarriedEngagedUsers();
+      const response = await getMarriedEngagedUsers(selectedState || undefined, selectedCity || undefined);
       setMarriedEngagedUsers(response.users || []);
     } catch (error) {
       console.error("Error fetching married/engaged users:", error);
@@ -165,7 +226,7 @@ export default function OthersScreen() {
   const fetchCompleteSoonUsers = async () => {
     setLoading(true);
     try {
-      const response = await getCompleteSoonUsers();
+      const response = await getCompleteSoonUsers(selectedState || undefined, selectedCity || undefined);
       setCompleteSoonUsers(response.users || []);
     } catch (error) {
       console.error("Error fetching complete soon users:", error);
@@ -178,7 +239,7 @@ export default function OthersScreen() {
   const fetchInterestedNotRegisteredUsers = async () => {
     setLoading(true);
     try {
-      const response = await getInterestedNotRegisteredUsers();
+      const response = await getInterestedNotRegisteredUsers(2, 1000, 0, selectedState || undefined, selectedCity || undefined);
       setInterestedNotRegisteredUsers(response.users || []);
     } catch (error) {
       console.error("Error fetching interested not registered users:", error);
@@ -191,7 +252,7 @@ export default function OthersScreen() {
   const fetchNeedHelpUsers = async () => {
     setLoading(true);
     try {
-      const response = await getNeedHelpUsers();
+      const response = await getNeedHelpUsers(selectedState || undefined, selectedCity || undefined);
       setNeedHelpUsers(response.users || []);
     } catch (error) {
       console.error("Error fetching need help users:", error);
@@ -223,7 +284,7 @@ export default function OthersScreen() {
     } else if (activeSubTab === "Need Help completing") {
       fetchNeedHelpUsers();
     }
-  }, [activeSubTab]);
+  }, [activeSubTab, selectedState, selectedCity]);
 
   const handleUserPress = (user: User) => {
     setSelectedUser(user);
@@ -279,13 +340,19 @@ export default function OthersScreen() {
       }
     })();
     
-    if (!searchQuery) return data;
+    if (!searchQuery && !activeAgent) return data;
     
-    return data.filter(user => 
-      user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.mobile_no.includes(searchQuery) ||
-      user.assigned_to.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    return data.filter(user => {
+      const matchesSearch = searchQuery ? (
+        user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        user.mobile_no.includes(searchQuery) ||
+        (user.assigned_to && user.assigned_to.toLowerCase().includes(searchQuery.toLowerCase()))
+      ) : true;
+      
+      const matchesAgent = activeAgent ? user.assigned_to === activeAgent : true;
+      
+      return matchesSearch && matchesAgent;
+    });
   };
 
   const getPriorityColor = (priority: string) => {
@@ -486,6 +553,163 @@ export default function OthersScreen() {
             </TouchableOpacity>
           ) : null}
         </View>
+
+        {/* Simple "Dropdown" for Agent Filter - Only for Super Admin */}
+        {userRole === 'SUPER_ADMIN' && (
+          <View style={{ marginTop: 12, zIndex: 100 }}>
+            <TouchableOpacity
+              style={[
+                styles.dropdownButton,
+                { backgroundColor: isDark ? "#334155" : "#f8fafc", borderColor: isDark ? "#475569" : "#e2e8f0" }
+              ]}
+              onPress={() => setShowAgentDropdown(!showAgentDropdown)}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Ionicons name="person" size={16} color={isDark ? "#94a3b8" : "#64748b"} />
+                <Text style={[styles.dropdownButtonText, { color: isDark ? "#f8fafc" : "#0f172a" }]}>
+                  {activeAgent ? `Assigned to: ${activeAgent}` : "Filter by Agent: All"}
+                </Text>
+              </View>
+              <Ionicons name={showAgentDropdown ? "chevron-up" : "chevron-down"} size={16} color={isDark ? "#94a3b8" : "#64748b"} />
+            </TouchableOpacity>
+
+            {showAgentDropdown && (
+              <View style={[styles.dropdownList, { backgroundColor: isDark ? "#1e293b" : "#ffffff", borderColor: isDark ? "#475569" : "#e2e8f0" }]}>
+                <TouchableOpacity
+                  style={[styles.dropdownItem, !activeAgent && { backgroundColor: isDark ? "#334155" : "#f1f5f9" }]}
+                  onPress={() => {
+                    setActiveAgent(null);
+                    setShowAgentDropdown(false);
+                  }}
+                >
+                  <Text style={{ color: isDark ? "#f8fafc" : "#0f172a", fontWeight: !activeAgent ? '700' : '400' }}>All Agents</Text>
+                </TouchableOpacity>
+                
+                {agents.map((agent) => (
+                  <TouchableOpacity
+                    key={agent}
+                    style={[styles.dropdownItem, activeAgent === agent && { backgroundColor: isDark ? "#334155" : "#f1f5f9" }]}
+                    onPress={() => {
+                      setActiveAgent(agent);
+                      setShowAgentDropdown(false);
+                    }}
+                  >
+                    <Text style={{ color: isDark ? "#f8fafc" : "#0f172a", fontWeight: activeAgent === agent ? '700' : '400' }}>{agent}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+          </View>
+        )}
+        
+        {/* State and City Filters - Only for Super Admin */}
+        {userRole === 'SUPER_ADMIN' && (
+          <View style={{ flexDirection: 'row', gap: 12, marginTop: 12, zIndex: 90 }}>
+             {/* State Filter */}
+             <View style={{ flex: 1, zIndex: 92 }}>
+              <TouchableOpacity
+                style={[
+                  styles.dropdownButton,
+                  { backgroundColor: isDark ? "#334155" : "#f8fafc", borderColor: isDark ? "#475569" : "#e2e8f0" }
+                ]}
+                onPress={() => {
+                  setShowStateDropdown(!showStateDropdown);
+                  setShowCityDropdown(false);
+                  setShowAgentDropdown(false);
+                }}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                  <Ionicons name="map" size={16} color={isDark ? "#94a3b8" : "#64748b"} />
+                  <Text style={[styles.dropdownButtonText, { color: isDark ? "#f8fafc" : "#0f172a" }]} numberOfLines={1}>
+                    {selectedState || "State"}
+                  </Text>
+                </View>
+                <Ionicons name={showStateDropdown ? "chevron-up" : "chevron-down"} size={16} color={isDark ? "#94a3b8" : "#64748b"} />
+              </TouchableOpacity>
+
+              {showStateDropdown && (
+                <View style={[styles.dropdownList, { backgroundColor: isDark ? "#1e293b" : "#ffffff", borderColor: isDark ? "#475569" : "#e2e8f0" }]}>
+                   <ScrollView style={{ maxHeight: 200 }} nestedScrollEnabled>
+                    <TouchableOpacity
+                      style={[styles.dropdownItem, !selectedState && { backgroundColor: isDark ? "#334155" : "#f1f5f9" }]}
+                      onPress={() => {
+                        setSelectedState(null);
+                        setShowStateDropdown(false);
+                      }}
+                    >
+                      <Text style={{ color: isDark ? "#f8fafc" : "#0f172a", fontWeight: !selectedState ? '700' : '400' }}>All States</Text>
+                    </TouchableOpacity>
+                    
+                    {availableStates.map((state) => (
+                      <TouchableOpacity
+                        key={state}
+                        style={[styles.dropdownItem, selectedState === state && { backgroundColor: isDark ? "#334155" : "#f1f5f9" }]}
+                        onPress={() => {
+                          setSelectedState(state);
+                          setShowStateDropdown(false);
+                        }}
+                      >
+                        <Text style={{ color: isDark ? "#f8fafc" : "#0f172a", fontWeight: selectedState === state ? '700' : '400' }}>{state}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
+            </View>
+
+            {/* City Filter */}
+            <View style={{ flex: 1, zIndex: 91 }}>
+              <TouchableOpacity
+                style={[
+                  styles.dropdownButton,
+                  { backgroundColor: isDark ? "#334155" : "#f8fafc", borderColor: isDark ? "#475569" : "#e2e8f0" }
+                ]}
+                onPress={() => {
+                  setShowCityDropdown(!showCityDropdown);
+                  setShowStateDropdown(false);
+                  setShowAgentDropdown(false);
+                }}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                  <Ionicons name="location" size={16} color={isDark ? "#94a3b8" : "#64748b"} />
+                  <Text style={[styles.dropdownButtonText, { color: isDark ? "#f8fafc" : "#0f172a" }]} numberOfLines={1}>
+                    {selectedCity || "City"}
+                  </Text>
+                </View>
+                <Ionicons name={showCityDropdown ? "chevron-up" : "chevron-down"} size={16} color={isDark ? "#94a3b8" : "#64748b"} />
+              </TouchableOpacity>
+
+              {showCityDropdown && (
+                <View style={[styles.dropdownList, { backgroundColor: isDark ? "#1e293b" : "#ffffff", borderColor: isDark ? "#475569" : "#e2e8f0" }]}>
+                  <ScrollView style={{ maxHeight: 200 }} nestedScrollEnabled>
+                    <TouchableOpacity
+                      style={[styles.dropdownItem, !selectedCity && { backgroundColor: isDark ? "#334155" : "#f1f5f9" }]}
+                      onPress={() => {
+                        setSelectedCity(null);
+                        setShowCityDropdown(false);
+                      }}
+                    >
+                      <Text style={{ color: isDark ? "#f8fafc" : "#0f172a", fontWeight: !selectedCity ? '700' : '400' }}>All Cities</Text>
+                    </TouchableOpacity>
+                    
+                    {availableCities.map((city) => (
+                      <TouchableOpacity
+                        key={city}
+                        style={[styles.dropdownItem, selectedCity === city && { backgroundColor: isDark ? "#334155" : "#f1f5f9" }]}
+                        onPress={() => {
+                          setSelectedCity(city);
+                          setShowCityDropdown(false);
+                        }}
+                      >
+                        <Text style={{ color: isDark ? "#f8fafc" : "#0f172a", fontWeight: selectedCity === city ? '700' : '400' }}>{city}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
+            </View>
+          </View>
+        )}
       </View>
 
       <View style={styles.content}>
@@ -598,6 +822,41 @@ const styles = StyleSheet.create({
   tabText: {
     fontSize: 14,
     fontWeight: '600',
+  },
+  dropdownButton: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  dropdownButtonText: {
+    marginLeft: 8,
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  dropdownList: {
+    position: 'absolute',
+    top: '100%',
+    left: 0,
+    right: 0,
+    marginTop: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+    zIndex: 1000,
+  },
+  dropdownItem: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
   },
   content: {
     flex: 1,

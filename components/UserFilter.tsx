@@ -1,14 +1,14 @@
-import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  Modal,
-  StyleSheet,
-  TextInput,
-  FlatList,
-} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import React, { useEffect, useState } from 'react';
+import {
+    FlatList,
+    Modal,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
+} from 'react-native';
 import { getStatesAndCities } from '../endpoints/location';
 
 interface UserFilterProps {
@@ -67,19 +67,19 @@ export const UserFilter: React.FC<UserFilterProps> = ({
         headers: 'Authorization Bearer token included'
       });
       
-      const data = await getStatesAndCities();
+      const response = await getStatesAndCities();
       
       console.log('✅ States & Cities API Response:', {
-        success: true,
-        statesCount: data.states?.length || 0,
-        citiesCount: data.cities?.length || 0,
-        states: data.states,
-        cities: data.cities
+        success: response.success,
+        statesCount: response.data?.states?.length || 0,
+        citiesCount: response.data?.cities?.length || 0,
+        states: response.data?.states,
+        cities: response.data?.cities
       });
       
-      setStates(data.states);
-      setCities(data.cities);
-    } catch (error) {
+      setStates(response.data?.states || []);
+      setCities(response.data?.cities || []);
+    } catch (error: any) {
       console.error('❌ States & Cities API Error:', {
         error: error.message,
         stack: error.stack
@@ -87,11 +87,11 @@ export const UserFilter: React.FC<UserFilterProps> = ({
     }
   };
 
-  const filteredStates = states.filter(state =>
+  const filteredStates = (states || []).filter(state =>
     state.toLowerCase().includes(stateSearch.toLowerCase())
   );
 
-  const filteredCities = cities.filter(city =>
+  const filteredCities = (cities || []).filter(city =>
     city.toLowerCase().includes(citySearch.toLowerCase())
   );
 

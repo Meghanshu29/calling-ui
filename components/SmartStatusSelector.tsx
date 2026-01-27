@@ -1,6 +1,6 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import React from 'react';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 interface SmartStatusSelectorProps {
   selectedStatus: string;
@@ -9,10 +9,10 @@ interface SmartStatusSelectorProps {
 }
 
 const QUICK_STATUSES = [
-  { key: 'Interested', icon: 'heart', color: '#22c55e', label: '✅ Interested' },
-  { key: 'Not Interested', icon: 'heart-dislike', color: '#ef4444', label: '❌ Not Interested' },
-  { key: 'Busy Call Later', icon: 'time', color: '#f59e0b', label: '⏰ Call Later' },
-  { key: 'Declined', icon: 'close-circle', color: '#dc2626', label: '🚫 Declined' },
+  { key: 'Interested', icon: 'checkmark-circle', color: '#059669', label: 'Interested' }, // Emerald Teal
+  { key: 'Not Interested', icon: 'close-circle', color: '#64748b', label: 'Not Interested' }, // Slate Grey
+  { key: 'Busy Call Later', icon: 'time', color: '#d97706', label: 'Call Later' }, // Warm Amber
+  { key: 'Declined', icon: 'ban', color: '#e11d48', label: 'Declined' }, // Rose Red
 ];
 
 export const SmartStatusSelector: React.FC<SmartStatusSelectorProps> = ({
@@ -36,7 +36,12 @@ export const SmartStatusSelector: React.FC<SmartStatusSelectorProps> = ({
                 {
                   backgroundColor: isSelected ? status.color : (isDark ? '#334155' : '#f8fafc'),
                   borderColor: status.color,
-                  borderWidth: isSelected ? 0 : 1,
+                  borderWidth: isSelected ? 0 : 1.5, // Slightly thicker border for unselected
+                  elevation: isSelected ? 4 : 0, // Pop effect
+                  shadowColor: status.color,
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: isSelected ? 0.3 : 0,
+                  shadowRadius: 4,
                 },
               ]}
               onPress={() => onStatusChange(status.key)}
@@ -64,29 +69,34 @@ export const SmartStatusSelector: React.FC<SmartStatusSelectorProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: 20,
+    marginBottom: 24,
   },
   title: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 14,
+    fontWeight: '700',
     marginBottom: 12,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    opacity: 0.7,
   },
   statusGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    justifyContent: 'space-between',
+    rowGap: 12,
   },
   statusButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
-    gap: 6,
-    minWidth: '47%',
+    justifyContent: 'center',
+    width: '48%',
+    paddingHorizontal: 8,
+    paddingVertical: 14,
+    borderRadius: 12,
+    gap: 8,
   },
   statusText: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '600',
   },
 });

@@ -22,9 +22,7 @@ export interface AssignmentStatsResponse {
   data: AssignmentStats[];
 }
 
-export const getAssignmentStats = async (currentDay?: boolean): Promise<AssignmentStatsResponse> => {
-  const endpoint = currentDay 
-    ? "admin/assignment-stats?current_day=true"
-    : "admin/assignment-stats";
+export const getAssignmentStats = async (period: string = 'all'): Promise<AssignmentStatsResponse> => {
+  const endpoint = `admin/assignment-stats?period=${period}`;
   return await ApiRequest("GET", endpoint);
 };

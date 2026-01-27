@@ -3,35 +3,24 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
 import { useEffect, useState } from "react";
 import {
-  ActivityIndicator,
-  FlatList,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  useColorScheme,
-  View,
+    ActivityIndicator,
+    FlatList,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    useColorScheme,
+    View,
 } from "react-native";
 import { Toast } from "../components/Toast";
-import { UserCard } from "../components/UserCard";
 import { FilterState, UserFilter } from "../components/UserFilter";
 import { useAuth } from "../contexts/AuthContext";
+import { AssignmentStats } from "../endpoints/stats";
 import {
-  GetUnregisterdUsers,
-  updateFeedback,
-  getEscalatedUsers,
-  getNotSeriousUsers,
-  getDeclinedUsers,
-  getBusyCallLaterUsers,
-  getInterestedUsers,
-  getNotInterestedUsers,
-  getMarriedEngagedUsers,
-  getCompleteSoonUsers,
-  getNeedHelpUsers,
-  getInterestedNotRegisteredUsers,
-  sendWhatsAppMessage,
+    getEscalatedUsers,
+    GetUnregisterdUsers,
+    sendWhatsAppMessage
 } from "../endpoints/users";
-import { getAssignmentStats, AssignmentStats } from "../endpoints/stats";
 import { useToast } from "../hooks/useToast";
 
 interface User {
@@ -49,23 +38,22 @@ interface User {
   priority: string;
 }
 
-type TabType = "unregistered_user" | "matched_users" | "incomplete_user" | "others" | "whatsapp" | "statistics";
+type TabType = "unregister user" | "matched_users" | "incomplete user" | "others" | "whatsapp";
 
 const TABS: {
   key: TabType;
   label: string;
   icon: string;
 }[] = [
-  { key: "unregistered_user", label: "Unregistered", icon: "person-add" },
+  { key: "unregister user", label: "Unregistered", icon: "person-add" },
   { key: "matched_users", label: "Matched User", icon: "heart" },
-  { key: "incomplete_user", label: "Incomplete User", icon: "hourglass" },
+  { key: "incomplete user", label: "Incomplete User", icon: "hourglass" },
   { key: "others", label: "Others", icon: "people" },
   { key: "whatsapp", label: "WhatsApp", icon: "logo-whatsapp" },
-  { key: "statistics", label: "Statistics", icon: "stats-chart" },
 ];
 
 export default function SuperAdminScreen() {
-  const [activeTab, setActiveTab] = useState<TabType>("unregistered_user");
+  const [activeTab, setActiveTab] = useState<TabType>("unregister user");
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(false);
   const [showFilter, setShowFilter] = useState(false);
@@ -98,24 +86,27 @@ export default function SuperAdminScreen() {
       } else {
         setLoggedInUser("ADMIN");
       }
+      // Automaticaly fetch users after loading info
+      fetchUsers();
     } catch (error) {
       console.error("Error loading user info:", error);
       setLoggedInUser("ADMIN");
+      fetchUsers();
     }
-  };
+  };;
 
-  const getTabColor = (tab: TabType) => {
+  const getTabColor = (tab: TabType): string => {
     switch (tab) {
-      case "unregistered_user":
+      case "unregister user":
         return "#3b82f6";
       case "matched_users":
         return "#ec4899";
-      case "incomplete_user":
+      case "incomplete user":
         return "#f59e0b";
       case "others":
         return "#8b5cf6";
-      case "statistics":
-        return "#f97316";
+      default:
+        return "#3b82f6";
     }
   };
 
@@ -127,12 +118,6 @@ export default function SuperAdminScreen() {
       if (activeTab === "others") {
         response = await getEscalatedUsers();
       } else if (activeTab === "whatsapp") {
-        setUsers([]);
-        setLoading(false);
-        return;
-      } else if (activeTab === "statistics") {
-        const statsResponse = await getAssignmentStats(showCurrentDay);
-        setStatsData(statsResponse.data || []);
         setUsers([]);
         setLoading(false);
         return;
@@ -156,6 +141,31 @@ export default function SuperAdminScreen() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const renderUserItem = ({ item }: { item: User }) => {
+    const tabColor = getTabColor(activeTab);
+    return (
+      <TouchableOpacity 
+        style={[styles.userItem, { backgroundColor: isDark ? "#1e293b" : "#ffffff", borderColor: isDark ? "#334155" : "#e2e8f0" }]}
+        onPress={() => handleUserPress(item)}
+      >
+        <View style={styles.userHeader}>
+          <LinearGradient
+            colors={[tabColor, tabColor + 'dd']}
+            style={styles.avatar}
+          >
+            <Text style={styles.avatarText}>{item.name.charAt(0).toUpperCase()}</Text>
+          </LinearGradient>
+          <View style={styles.userInfo}>
+            <Text style={[styles.userName, { color: isDark ? "#f8fafc" : "#0f172a" }]}>{item.name}</Text>
+            <Text style={[styles.userPhone, { color: isDark ? "#94a3b8" : "#64748b" }]}>{item.mobile_no || 'No number'}</Text>
+            <Text style={[styles.userStatus, { color: tabColor }]}>{item.status || 'Pending'}</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color={isDark ? "#475569" : "#cbd5e1"} />
+        </View>
+      </TouchableOpacity>
+    );
   };
 
   const handleUserPress = (user: User) => {

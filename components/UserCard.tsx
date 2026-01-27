@@ -2,15 +2,15 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useState } from "react";
 import {
-    Animated,
-    FlatList,
-    Linking,
-    Modal,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Animated,
+  FlatList,
+  Linking,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { sendWhatsAppMessage } from "../endpoints/users";
 import { MatchDetailsModal } from "./MatchDetailsModal";
@@ -80,6 +80,7 @@ export const UserCard: React.FC<UserCardProps> = ({
     isInterested: number;
   } | null>(null);
   const [slideAnim] = useState(new Animated.Value(0));
+  const [pulseAnim] = useState(new Animated.Value(1));
   const borderAnimation = new Animated.Value(0);
 
   useEffect(() => {
@@ -98,6 +99,22 @@ export const UserCard: React.FC<UserCardProps> = ({
       ]).start(() => animate());
     };
     animate();
+
+    const pulse = () => {
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 0.5,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+      ]).start(() => pulse());
+    };
+    pulse();
   }, []);
 
   const animateSlide = async () => {
@@ -136,7 +153,7 @@ export const UserCard: React.FC<UserCardProps> = ({
     try {
       const messageData = {
         phone_number: phoneNumber,
-        name: user.name,
+        name: user?.name,
         is_interested: isInterested,
       };
 
@@ -225,15 +242,15 @@ export const UserCard: React.FC<UserCardProps> = ({
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        <LinearGradient
-          colors={
-            isDark
-              ? (["#1e293b", "#334155"] as const)
-              : (["#ffffff", "#f8fafc"] as const)
-          }
-          style={styles.userCard}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
+        <View
+          style={[
+            styles.userCard,
+            {
+              backgroundColor: isDark ? "#1e293b" : "#ffffff",
+              borderColor: isDark ? "#334155" : "#e2e8f0",
+              borderWidth: 1,
+            }
+          ]}
         >
           <Animated.View
             style={[
@@ -409,7 +426,7 @@ export const UserCard: React.FC<UserCardProps> = ({
                 { color: isDark ? "#94a3b8" : "#64748b" },
               ]}
             >
-              More Options
+              All Options
             </Text>
           </TouchableOpacity>
 
@@ -443,28 +460,39 @@ export const UserCard: React.FC<UserCardProps> = ({
                 colors={
                   selectedStatus
                     ? ["#3b82f6", "#1d4ed8"]
-                    : ["#9ca3af", "#6b7280"]
+                    : isDark 
+                      ? ["#334155", "#1e293b"] 
+                      : ["#f1f5f9", "#e2e8f0"]
                 }
-                style={styles.submitButton}
+                style={[
+                  styles.submitButton,
+                  !selectedStatus && { borderWidth: 1, borderColor: isDark ? "#475569" : "#cbd5e1" }
+                ]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
               >
-                <Text style={styles.submitButtonText}>
+                <Animated.Text style={[
+                  styles.submitButtonText,
+                  !selectedStatus && { 
+                    color: isDark ? "#94a3b8" : "#64748b",
+                    opacity: pulseAnim
+                  }
+                ]}>
                   {!selectedStatus
-                    ? "Select Status First"
+                    ? " Select Status First"
                     : isLastUser
                       ? "✅ Complete"
                       : "Next Person"}
-                </Text>
+                </Animated.Text>
                 <Ionicons
                   name={isLastUser ? "checkmark-circle" : "arrow-forward"}
                   size={20}
-                  color="white"
+                  color={selectedStatus ? "white" : (isDark ? "#94a3b8" : "#64748b")}
                 />
               </LinearGradient>
             </TouchableOpacity>
           </View>
-        </LinearGradient>
+        </View>
       </ScrollView>
 
       <Modal visible={showDropdown} transparent animationType="fade">
@@ -545,9 +573,14 @@ const styles = StyleSheet.create({
   },
   userCard: {
     position: "relative",
-    padding: 28,
-    borderRadius: 24,
+    padding: 24,
+    borderRadius: 16,
     marginHorizontal: 4,
+    shadowColor: "#64748b",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 4,
   },
   userHeader: {
     flexDirection: "row",
@@ -599,10 +632,16 @@ const styles = StyleSheet.create({
   phoneContainer: {
     flexDirection: "row",
     alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: "rgba(59, 130, 246, 0.1)", // Light blue tint
+    alignSelf: "flex-start",
+    marginBottom: 8,
   },
   userPhone: {
-    fontSize: 16,
-    fontWeight: "500",
+    fontSize: 15,
+    fontWeight: "600",
     marginLeft: 8,
   },
   instructionCard: {

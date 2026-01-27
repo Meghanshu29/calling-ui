@@ -4,6 +4,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  FlatList,
   Modal,
   ScrollView,
   StyleSheet,
@@ -40,19 +41,14 @@ interface User {
   priority: string;
 }
 
-type TabType = "unregistered_user" | "matched_users" | "incomplete_user";
+type TabType = "unregister user" | "matched_users" | "incomplete user";
+type UserRole = "ADMIN" | "SUPER_ADMIN" | "CALL_AGENT" | "CUSTOMER_SUPPORT";
 
-const TABS: {
-  key: TabType;
-  label: string;
-}[] = [
-  { key: "unregistered_user", label: "Unregistered" },
-  { key: "matched_users", label: "Matched User" },
-  { key: "incomplete_user", label: "Incomplete User" },
-];
 export default function HomeScreen() {
-  const [activeTab, setActiveTab] = useState<TabType>("unregistered_user");
+  const [activeTab, setActiveTab] = useState<TabType>("unregister user");
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [users, setUsers] = useState<User[]>([]);
+  const [userRole, setUserRole] = useState<UserRole | null>(null);
   const setSelectedStatus = (status: string) => {
     console.log("🔄 setSelectedStatus called with:", status);
     console.trace("📍 Stack trace for setSelectedStatus");
@@ -68,6 +64,9 @@ export default function HomeScreen() {
   const [loading, setLoading] = useState(false);
   const [loadingNext, setLoadingNext] = useState(false);
   const [loggedInUser, setLoggedInUser] = useState<string>("ADMIN");
+  const [offset, setOffset] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [showPhoneSelection, setShowPhoneSelection] = useState(false);
   const [selectedPhoneNumber, setSelectedPhoneNumber] = useState<string>("");
   const [availablePhoneNumbers, setAvailablePhoneNumbers] = useState<string[]>([]);
@@ -83,26 +82,43 @@ export default function HomeScreen() {
   const loadUserInfo = async () => {
     try {
       const userInfo = await AsyncStorage.getItem("userInfo");
+      console.log("DEBUG: Raw userInfo from storage:", userInfo);
       if (userInfo) {
         const parsedUser = JSON.parse(userInfo);
         const username = parsedUser.username || parsedUser.email;
+        const role = parsedUser.role || "CALL_AGENT";
+        console.log("DEBUG: Parsed username:", username, "role:", role);
         setLoggedInUser(username);
+        setUserRole(role);
       } else {
+        console.log("DEBUG: No userInfo found, defaulting to ADMIN");
         setLoggedInUser("ADMIN");
+        setUserRole("ADMIN");
       }
     } catch (error) {
-      console.error("Error loading user info:", error);
+      console.error("DEBUG: Error loading user info:", error);
       setLoggedInUser("ADMIN");
+      setUserRole("ADMIN");
     }
   };
 
+  const dynamicTabs: { key: TabType; label: string }[] = [
+    { key: "unregister user", label: "Unregistered" },
+    { key: "matched_users", label: "Matched User" },
+    { key: "incomplete user", label: "Incomplete User" },
+  ];
+
+  if (userRole?.toUpperCase() === "ADMIN" || userRole?.toUpperCase() === "SUPER_ADMIN") {
+    // Statistics moved to global tab
+  }
+
   const getTabIcon = (tab: TabType) => {
     switch (tab) {
-      case "unregistered_user":
+      case "unregister user":
         return "person-add";
       case "matched_users":
         return "heart";
-      case "incomplete_user":
+      case "incomplete user":
         return "hourglass";
       default:
         return "ellipse";
@@ -111,56 +127,90 @@ export default function HomeScreen() {
 
   const getTabColor = (tab: TabType) => {
     switch (tab) {
-      case "unregistered_user":
-        return "#3b82f6";
+      case "unregister user":
+        return "#2563eb"; // Royal Blue
       case "matched_users":
-        return "#ec4899";
-      case "incomplete_user":
-        return "#f59e0b";
+        return "#e11d48"; // Rose Red
+      case "incomplete user":
+        return "#d97706"; // Warm Amber
       default:
-        return "#3b82f6";
+        return "#2563eb";
     }
   };
   const fetchUsersByTab = async (tab: TabType) => {
-    setLoading(true);
-    setCurrentUser(null);
-    try {
-      let response;
-      switch (tab) {
-        case "unregistered_user":
-          response = await getUnregisteredUsers(
-            activeTab,
-            selectedStatus,
-            loggedInUser,
-          );
-          break;
+      setLoading(true);
+      setUsers([]);
+      setCurrentUser(null);
+      setOffset(0);
+      setHasMore(true);
+      try {
+        let response;
+        const isSuperAdmin = userRole?.toUpperCase() === "SUPER_ADMIN";
+        const limit = isSuperAdmin ? 50 : 1;
+        const fetchForUser = isSuperAdmin ? undefined : loggedInUser;
+        console.log("DEBUG: Fetching with limit:", limit, "for user:", fetchForUser);
 
-        case "matched_users":
-          response = await getUnregisteredUsers(
-            activeTab,
-            selectedStatus,
-            loggedInUser,
-          );
-          break;
+        switch (tab) {
+          case "unregister user":
+            response = await getUnregisteredUsers(
+              activeTab,
+              "pending",
+              fetchForUser,
+              undefined,
+              undefined,
+              limit,
+              !isSuperAdmin,
+              loggedInUser,
+              0
+            );
+            break;
 
-        case "incomplete_user":
-          response = await getUnregisteredUsers(
-            activeTab,
-            selectedStatus,
-            loggedInUser,
-          );
+          case "matched_users":
+            response = await getUnregisteredUsers(
+              activeTab,
+              "pending",
+              fetchForUser,
+              undefined,
+              undefined,
+              limit,
+              !isSuperAdmin,
+              loggedInUser,
+              0
+            );
+            break;
 
-          break;
+          case "incomplete user":
+            response = await getUnregisteredUsers(
+              activeTab,
+              "pending",
+              fetchForUser,
+              undefined,
+              undefined,
+              limit,
+              !isSuperAdmin,
+              loggedInUser,
+              0
+            );
 
-        default:
-          return;
-      }
-      console.log("Response Users=>", response);
-      if (response?.users?.length) {
-        setCurrentUser(response.users[0]);
-      } else {
-        setCurrentUser(null);
-      }
+            break;
+
+          default:
+            return;
+        }
+        console.log("Response Users=>", response);
+        if (response?.users?.length) {
+          setUsers(response.users);
+          if (userRole?.toUpperCase() !== "SUPER_ADMIN") {
+            setCurrentUser(response.users[0]);
+          }
+          setOffset(response.users.length);
+          setHasMore(response.users.length === limit);
+        } else {
+          setUsers([]);
+          setCurrentUser(null);
+          setHasMore(false);
+        }
+
     } catch (error) {
       console.error("Error fetching user:", error);
       showError("Failed to load contact");
@@ -168,42 +218,87 @@ export default function HomeScreen() {
       setLoading(false);
     }
   };
-  useEffect(() => {
-    const fetchData = async () => {
-      // Only fetch when user explicitly requests it, not automatically
-    };
+  const loadMoreUsers = async () => {
+    if (loadingMore || !hasMore || userRole?.toUpperCase() !== "SUPER_ADMIN") return;
 
-    if (loggedInUser && activeTab) {
-      // Remove automatic API calls - only call when user clicks buttons
+    setLoadingMore(true);
+    console.log("DEBUG: loadMoreUsers called, offset:", offset);
+    try {
+      const limit = 50;
+      const response = await getUnregisteredUsers(
+        activeTab,
+        "pending",
+        undefined,
+        undefined,
+        undefined,
+        limit,
+        false,
+        loggedInUser,
+        offset
+      );
+
+      if (response?.users?.length) {
+        setUsers(prev => {
+          const newUsers = response.users.filter(
+            (newUser: User) => !prev.some(oldUser => oldUser.id === newUser.id)
+          );
+          return [...prev, ...newUsers];
+        });
+        setOffset(prev => prev + response.users.length);
+        setHasMore(response.users.length === limit);
+      } else {
+        setHasMore(false);
+      }
+    } catch (error) {
+      console.error("Error loading more users:", error);
+    } finally {
+      setLoadingMore(false);
     }
-    fetchData();
-  }, [loggedInUser, activeTab]);
+  };
+
+  useEffect(() => {
+    if (loggedInUser && activeTab && userRole) {
+      console.log("DEBUG: useEffect triggering fetchUsersByTab for role:", userRole);
+      fetchUsersByTab(activeTab);
+    }
+  }, [loggedInUser, activeTab, userRole]);
 
   const fetchNextUser = async () => {
     if (!activeTab) return;
     const messageData = {
       phone_number: String(currentUser?.mobile_no),
       name: currentUser?.name,
-      is_interested: selectedStatus == "Interested" ? 1 : 0,
+      is_interested: selectedStatusState == "Interested" ? 1 : 0,
     };
     setLoadingNext(true);
     try {
-      await fetchUsersByTab(activeTab);
       if (
-        selectedStatus == "Interested" ||
-        selectedStatus == "Not Interested"
+        selectedStatusState == "Interested" ||
+        selectedStatusState == "Not Interested"
       ) {
         const response = await sendWhatsAppMessage(messageData);
         console.log("Whatsapp Response=>", response);
       }
+      const isSuperAdmin = userRole?.toUpperCase() === "SUPER_ADMIN";
       const response = await getUnregisteredUsers(
         activeTab,
         "pending",
-        loggedInUser,
+        isSuperAdmin ? undefined : loggedInUser,
+        undefined,
+        undefined,
+        isSuperAdmin ? 50 : 1,
+        !isSuperAdmin,
+        loggedInUser
       );
       if (response?.users?.length) {
-        setCurrentUser(response.users[0]);
+        setUsers(response.users);
+        if (userRole?.toUpperCase() !== "SUPER_ADMIN") {
+          setCurrentUser(response.users[0]);
+        } else {
+          setCurrentUser(null);
+        }
       } else {
+        setUsers([]);
         setCurrentUser(null);
       }
       setSelectedStatus("");
@@ -248,7 +343,7 @@ export default function HomeScreen() {
     setShowFeedbackModal(true);
   };
   const handleSkipFeedback = async () => {
-    if (!selectedStatus) {
+    if (!selectedStatusState) {
       showError("Please select a call status before proceeding");
       return;
     }
@@ -266,14 +361,26 @@ export default function HomeScreen() {
       setSelectedStatus("");
       setLoadingNext(true);
       
+      const isSuperAdmin = userRole?.toUpperCase() === "SUPER_ADMIN";
       const response = await getUnregisteredUsers(
         activeTab,
         "pending",
-        loggedInUser,
+        isSuperAdmin ? undefined : loggedInUser,
+        undefined,
+        undefined,
+        isSuperAdmin ? 50 : 1,
+        !isSuperAdmin,
+        loggedInUser
       );
       if (response?.users?.length) {
-        setCurrentUser(response.users[0]);
+        setUsers(response.users);
+        if (userRole?.toUpperCase() !== "SUPER_ADMIN") {
+          setCurrentUser(response.users[0]);
+        } else {
+          setCurrentUser(null);
+        }
       } else {
+        setUsers([]);
         setCurrentUser(null);
       }
       
@@ -339,34 +446,34 @@ export default function HomeScreen() {
         }
       }
 
-      // 3️⃣ Fetch next user
-      const response = await getUnregisteredUsers(
-        activeTab,
-        "pending",
-        loggedInUser,
-      );
-      if (response?.users?.length) {
-        setCurrentUser(response.users[0]);
-      } else {
-        setCurrentUser(null);
-      }
       setFeedback("");
       setSelectedPhoneNumber("");
       setShowFeedbackModal(false);
       showSuccess("Status saved successfully!");
       // Reset status only after successful completion
       setSelectedStatus("");
-      // Don't call fetchNextUser() here as it will reset status again
       setLoadingNext(true);
-      // Fetch next user directly without calling fetchNextUser
+      
+      const isSuperAdmin = userRole?.toUpperCase() === "SUPER_ADMIN";
       const nextResponse = await getUnregisteredUsers(
         activeTab,
         "pending",
-        loggedInUser,
+        isSuperAdmin ? undefined : loggedInUser,
+        undefined,
+        undefined,
+        isSuperAdmin ? 50 : 1,
+        !isSuperAdmin,
+        loggedInUser
       );
       if (nextResponse?.users?.length) {
-        setCurrentUser(nextResponse.users[0]);
+        setUsers(nextResponse.users);
+        if (!isSuperAdmin) {
+          setCurrentUser(nextResponse.users[0]);
+        } else {
+          setCurrentUser(null);
+        }
       } else {
+        setUsers([]);
         setCurrentUser(null);
       }
       setLoadingNext(false);
@@ -382,21 +489,28 @@ export default function HomeScreen() {
   const handleFetchAllUsers = async () => {
     setFetchingUsers(true);
     try {
+      const isSuperAdmin = userRole?.toUpperCase() === "SUPER_ADMIN";
       const response = await GetUnregisterdUsers({
         tag: activeTab,
         status: "pending",
         state: filters.state || undefined,
         city: filters.city || undefined,
-        assigned_to: loggedInUser,
-        auto_assign: true,
+        assigned_to: isSuperAdmin ? undefined : loggedInUser,
+        auto_assign: !isSuperAdmin,
         current_user: loggedInUser,
-        limit: 1,
+        limit: isSuperAdmin ? 50 : 1,
         offset: 0,
       });
       console.log("Fetched users:", response);
       if (response?.users?.length) {
-        setCurrentUser(response.users[0]);
+        setUsers(response.users);
+        if (userRole?.toUpperCase() !== "SUPER_ADMIN") {
+          setCurrentUser(response.users[0]);
+        } else {
+          setCurrentUser(null);
+        }
       } else {
+        setUsers([]);
         setCurrentUser(null);
       }
       showSuccess(`Fetched ${response.users?.length || 0} users`);
@@ -414,30 +528,39 @@ export default function HomeScreen() {
       hasFilters ? "Filters applied" : "No filters - using default API call",
     );
   };
-  console.log("Current User=>", currentUser);
-  console.log("🔍 Current selectedStatus:", selectedStatusState);
+  console.log("DEBUG: Rendering HomeScreen", { 
+    activeTab, 
+    userRole, 
+    usersCount: users.length, 
+    loading, 
+    currentUser: currentUser ? currentUser.name : 'NULL'
+  });
+
   return (
     <LinearGradient
       colors={
         isDark
-          ? (["#0f172a", "#1e293b", "#334155"] as const)
-          : (["#f0f9ff", "#e0f2fe", "#f8fafc"] as const)
+          ? (["#1e293b", "#334155", "#475569"] as const) // Lighter Slate/Gunmetal
+          : (["#ffffff", "#f8fafc", "#f1f5f9"] as const) // Pure White/Snow
       }
       style={styles.container}
     >
-      <View style={styles.header}>
+      <View style={[
+        styles.dashboardCard,
+        { backgroundColor: isDark ? "#1e293b" : "#ffffff", shadowColor: isDark ? "#000" : "#cbd5e1" }
+      ]}>
         <View style={styles.titleSection}>
           <LinearGradient
             colors={["#3b82f6", "#8b5cf6"]}
             style={styles.titleIcon}
           >
-            <Ionicons name="call" size={24} color="#ffffff" />
+            <Ionicons name="call" size={20} color="#ffffff" />
           </LinearGradient>
           <View style={{ flex: 1 }}>
             <Text
               style={[styles.title, { color: isDark ? "#f8fafc" : "#0f172a" }]}
             >
-              Calling Dashboard
+              {userRole?.toUpperCase() === "SUPER_ADMIN" ? "Super Admin Dashboard" : "Calling Dashboard"}
             </Text>
             <Text
               style={[
@@ -465,12 +588,50 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
 
+        <View style={[
+          styles.buttonRow,
+          { 
+            backgroundColor: isDark ? "#0f172a" : "#f1f5f9",
+            shadowColor: "transparent",
+            borderWidth: 1,
+            borderColor: isDark ? "#334155" : "#e2e8f0",
+            marginTop: 12,
+          }
+        ]}>
+          <TouchableOpacity
+            style={styles.actionSegment}
+            onPress={() => setShowFilter(true)}
+          >
+            <Ionicons name="filter" size={16} color={isDark ? "#94a3b8" : "#64748b"} />
+            <Text style={[styles.actionText, { color: isDark ? "#f8fafc" : "#0f172a" }]}>Filter</Text>
+          </TouchableOpacity>
+
+          <View style={[styles.verticalDivider, { backgroundColor: isDark ? "#334155" : "#e2e8f0" }]} />
+
+          <TouchableOpacity
+            style={styles.actionSegment}
+            onPress={handleFetchAllUsers}
+            disabled={fetchingUsers}
+          >
+            {fetchingUsers ? (
+              <ActivityIndicator size="small" color={getTabColor(activeTab)} />
+            ) : (
+              <>
+                <Ionicons name="download" size={16} color={getTabColor(activeTab)} />
+                <Text style={[styles.actionText, { color: getTabColor(activeTab) }]}>Fetch</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      <View style={{ marginBottom: 12 }}>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.tabScrollContainer}
         >
-          {TABS.map((tab) => {
+          {dynamicTabs.map((tab) => {
             const isActive = activeTab === tab.key;
             const tabColor = getTabColor(tab.key);
 
@@ -483,9 +644,14 @@ export default function HomeScreen() {
                     backgroundColor: isActive
                       ? tabColor
                       : isDark
-                        ? "#334155"
-                        : "#f1f5f9",
-                    borderColor: isActive ? tabColor : "transparent",
+                        ? "#1e293b"
+                        : "#ffffff",
+                    borderColor: isActive ? tabColor : (isDark ? "#334155" : "#e2e8f0"),
+                    borderWidth: 1,
+                    shadowColor: isActive ? tabColor : "#64748b",
+                    shadowOpacity: isActive ? 0.2 : 0.05,
+                    shadowRadius: 4,
+                    elevation: isActive ? 3 : 1,
                   },
                 ]}
                 onPress={() => setActiveTab(tab.key)}
@@ -514,58 +680,7 @@ export default function HomeScreen() {
             );
           })}
         </ScrollView>
-
-        <View style={styles.buttonRow}>
-          <TouchableOpacity
-            style={[
-              styles.filterButton,
-              {
-                backgroundColor: isDark ? "#1e293b" : "#ffffff",
-                borderWidth: 1,
-                borderColor: isDark ? "#475569" : "#e2e8f0",
-                shadowColor: isDark ? "#000" : "#3b82f6",
-                shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: 0.15,
-                shadowRadius: 8,
-                elevation: 6,
-              },
-            ]}
-            onPress={() => setShowFilter(true)}
-          >
-            <LinearGradient
-              colors={["#6366f1", "#8b5cf6"]}
-              style={styles.iconContainer}
-            >
-              <Ionicons name="filter" size={16} color="white" />
-            </LinearGradient>
-            <Text
-              style={[
-                styles.filterButtonText,
-                { color: isDark ? "#f8fafc" : "#1e293b" },
-              ]}
-            >
-              Filter
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[
-              styles.fetchButton,
-              { backgroundColor: getTabColor(activeTab) },
-            ]}
-            onPress={handleFetchAllUsers}
-            disabled={fetchingUsers}
-          >
-            {fetchingUsers ? (
-              <ActivityIndicator size="small" color="white" />
-            ) : (
-              <>
-                <Ionicons name="download" size={16} color="white" />
-                <Text style={styles.fetchButtonText}>Fetch Users</Text>
-              </>
-            )}
-          </TouchableOpacity>
-        </View>
+      </View>
 
         {loadingNext && (
           <View
@@ -580,7 +695,91 @@ export default function HomeScreen() {
             </Text>
           </View>
         )}
-      </View>
+        {loggedInUser && userRole?.toUpperCase() === "SUPER_ADMIN" && currentUser && (
+          <TouchableOpacity 
+            style={[styles.backButton, { backgroundColor: getTabColor(activeTab) + '20' }]}
+            onPress={() => setCurrentUser(null)}
+          >
+            <Ionicons name="arrow-back" size={20} color={getTabColor(activeTab)} />
+            <Text style={{ color: getTabColor(activeTab), fontWeight: '600', marginLeft: 8 }}>Back to List</Text>
+          </TouchableOpacity>
+        )}
+
+      {userRole?.toUpperCase() === "SUPER_ADMIN" && !currentUser ? (
+        <FlatList
+          data={users}
+          keyExtractor={(item: User) => item.id.toString()}
+          style={styles.listContainer}
+          renderItem={({ item: user }: { item: User }) => (
+            <TouchableOpacity 
+              key={user.id} 
+              style={[
+                styles.userListItem, 
+                { 
+                  backgroundColor: isDark ? "#1e293b" : "#ffffff",
+                  borderColor: isDark ? "#334155" : "#e2e8f0",
+                  shadowColor: getTabColor(activeTab), // Colored shadow glow
+                }
+              ]}
+              onPress={() => {
+                setCurrentUser(user);
+              }}
+            >
+              <View style={styles.userListInfo}>
+                <Text style={[styles.listUserName, { color: isDark ? "#f8fafc" : "#0f172a" }]}>{user.name}</Text>
+                <Text style={{ color: isDark ? "#94a3b8" : "#64748b", marginBottom: 6 }}>{user.mobile_no || 'No number'}</Text>
+                <View style={styles.badgeRow}>
+                  <View style={[styles.tagBadge, { backgroundColor: getTabColor(activeTab) + '20' }]}>
+                    <Text style={{ color: getTabColor(activeTab), fontSize: 11, fontWeight: '700' }}>{user.status?.toUpperCase() || 'PENDING'}</Text>
+                  </View>
+                  {user.assigned_to && (
+                    <View style={[styles.assignedBadge, { backgroundColor: isDark ? '#334155' : '#f1f5f9' }]}>
+                      <Ionicons name="person" size={10} color={isDark ? '#94a3b8' : '#64748b'} />
+                      <Text style={[styles.assignedBadgeText, { color: isDark ? '#f8fafc' : '#0f172a' }]}>
+                        {user.assigned_to}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={isDark ? "#475569" : "#cbd5e1"} />
+            </TouchableOpacity>
+          )}
+          onEndReached={loadMoreUsers}
+          onEndReachedThreshold={0.5}
+          ListFooterComponent={() => (
+            loadingMore ? (
+              <View style={{ paddingVertical: 20 }}>
+                <ActivityIndicator size="small" color={getTabColor(activeTab)} />
+              </View>
+            ) : null
+          )}
+          ListEmptyComponent={() => (
+            !loading && (
+              <View style={styles.emptyContainer}>
+                <Text style={{ color: isDark ? "#94a3b8" : "#64748b" }}>No users to display</Text>
+              </View>
+            )
+          )}
+        />
+
+      ) : (
+        !loading && currentUser && (
+          <UserCard
+            user={currentUser}
+            onSubmit={handleSubmitFeedback}
+            onSkip={handleSkipFeedback}
+            onNext={fetchNextUser}
+            isDark={isDark}
+            selectedStatus={selectedStatusState}
+            onStatusChange={setSelectedStatus}
+            isFirstUser={true}
+            isLastUser={false}
+            onFetchUsers={handleFetchAllUsers}
+            onOpenFilters={() => setShowFilter(true)}
+          />
+        )
+      )}
 
       {loading && (
         <View style={styles.loadingContainer}>
@@ -604,7 +803,7 @@ export default function HomeScreen() {
         </View>
       )}
 
-      {!loading && !currentUser && activeTab && (
+      {!loading && !currentUser && userRole?.toUpperCase() !== "SUPER_ADMIN" && (
         <View style={styles.emptyContainer}>
           <LinearGradient
             colors={[
@@ -637,29 +836,12 @@ export default function HomeScreen() {
           </LinearGradient>
         </View>
       )}
-
-      {!loading && currentUser && (
-        <UserCard
-          user={currentUser}
-          onSubmit={handleSubmitFeedback}
-          onSkip={handleSkipFeedback}
-          onNext={fetchNextUser}
-          isDark={isDark}
-          selectedStatus={selectedStatusState}
-          onStatusChange={setSelectedStatus}
-          isFirstUser={true}
-          isLastUser={false}
-          onFetchUsers={handleFetchAllUsers}
-          onOpenFilters={() => setShowFilter(true)}
-        />
-      )}
       <Toast
         message={toast.message}
         type={toast.type}
         visible={toast.visible}
         onHide={hideToast}
       />
-
       <Modal visible={showFeedbackModal} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <LinearGradient
@@ -807,46 +989,55 @@ const styles = StyleSheet.create({
   titleSection: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 20,
+    marginBottom: 12,
   },
   titleIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 16,
+    marginRight: 12,
   },
   title: {
-    fontSize: 28,
-    fontWeight: "800",
-    letterSpacing: -1,
+    fontSize: 20,
+    fontWeight: "700",
+    letterSpacing: -0.5,
   },
   subtitle: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: "500",
-    marginTop: 2,
+    marginTop: 1,
+  },
+  dashboardCard: {
+    margin: 12,
+    borderRadius: 20,
+    padding: 16,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 5,
+    marginBottom: 16,
   },
   tabScrollContainer: {
-    paddingHorizontal: 4,
-    gap: 12,
-    marginBottom: 16,
+    paddingHorizontal: 16, // Added padding since it's now full width
+    gap: 8,
   },
   tab: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 25,
-    borderWidth: 2,
-    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    gap: 6,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
   },
   tabText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "600",
   },
   progressContainer: {
@@ -857,6 +1048,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 20,
     marginTop: 12,
+    marginHorizontal: 16, // Added margin to match card
     gap: 12,
   },
   progress: {
@@ -994,38 +1186,147 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 14,
+    paddingVertical: 10,
     paddingHorizontal: 20,
-    borderRadius: 12,
+    borderRadius: 100,
     flex: 1,
-    gap: 8,
+    gap: 6,
+    borderWidth: 1,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   fetchButtonText: {
-    color: "white",
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: "600",
   },
   buttonRow: {
     flexDirection: "row",
-    marginHorizontal: 20,
-    marginTop: 16,
-    gap: 16,
+    alignItems: "center",
+    marginHorizontal: 0, // Removed margin inside the card
+    marginTop: 12,
+    borderRadius: 100,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 2,
+    overflow: 'hidden',
+  },
+  actionSegment: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 10,
+    gap: 6,
+    borderRadius: 100,
+  },
+  verticalDivider: {
+    width: 1,
+    height: "60%",
+    marginHorizontal: 4,
+  },
+  actionText: {
+    fontSize: 14,
+    fontWeight: "600",
   },
   filterButton: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 16,
+    paddingVertical: 10,
     paddingHorizontal: 20,
-    borderRadius: 16,
-    gap: 12,
+    borderRadius: 100,
+    gap: 8,
   },
   filterButtonText: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: "600",
   },
   iconContainer: {
     borderRadius: 8,
     padding: 6,
+  },
+  backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 12,
+    marginTop: 16,
+    marginHorizontal: 16, // Added margin to match card
+  },
+  statisticsContainer: {
+    flex: 1,
+    padding: 20,
+    justifyContent: 'center',
+  },
+  statsCard: {
+    padding: 24,
+    borderRadius: 20,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 5,
+  },
+  statsTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  statsText: {
+    fontSize: 16,
+    textAlign: 'center',
+  },
+  listContainer: {
+    flex: 1,
+    paddingHorizontal: 20,
+  },
+  userListItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  userListInfo: {
+    flex: 1,
+  },
+  listUserName: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  tagBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  badgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 4,
+  },
+  assignedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    gap: 4,
+  },
+  assignedBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
   },
 });

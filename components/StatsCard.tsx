@@ -1,32 +1,43 @@
-import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ActivityIndicator,
-  ScrollView,
-  TouchableOpacity,
-} from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { getAssignmentStats, AssignmentStats } from '../endpoints/stats';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { LinearGradient } from 'expo-linear-gradient';
+import React, { useEffect, useState } from 'react';
+import {
+    ActivityIndicator,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
+} from 'react-native';
+import { AssignmentStats, getAssignmentStats } from '../endpoints/stats';
 
 interface StatsCardProps {
   isDark: boolean;
 }
 
+const TIME_PERIODS = [
+  { key: 'all', label: 'All Time' },
+  { key: 'current', label: 'Today' },
+  { key: 'yesterday', label: 'Yesterday' },
+  { key: 'last_7_days', label: 'Last 7 Days' },
+  { key: 'last_15_days', label: 'Last 15 Days' },
+  { key: 'last_30_days', label: 'Last 30 Days' },
+  { key: 'last_3_months', label: 'Last 3 Months' },
+];
+
 export const StatsCard: React.FC<StatsCardProps> = ({ isDark }) => {
   const [stats, setStats] = useState<AssignmentStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<string>('');
-  const [showCurrentDay, setShowCurrentDay] = useState(false);
+  const [selectedPeriod, setSelectedPeriod] = useState<string>('all');
 
   useEffect(() => {
     loadUserStats();
-  }, [showCurrentDay]);
+  }, [selectedPeriod]);
 
   const loadUserStats = async () => {
+    setLoading(true);
     try {
       // Get current user
       const userInfo = await AsyncStorage.getItem('userInfo');
@@ -38,11 +49,17 @@ export const StatsCard: React.FC<StatsCardProps> = ({ isDark }) => {
       setCurrentUser(username);
 
       // Fetch stats
-      const response = await getAssignmentStats(showCurrentDay);
-      const userStats = response.data.find(stat => stat.assigned_to === username);
-      setStats(userStats || null);
+      const response = await getAssignmentStats(selectedPeriod);
+      // Ensure response.data is an array before trying to find
+      if (response && Array.isArray(response.data)) {
+        const userStats = response.data.find(stat => stat.assigned_to === username);
+        setStats(userStats || null);
+      } else {
+        setStats(null);
+      }
     } catch (error) {
       console.error('Error loading stats:', error);
+      setStats(null);
     } finally {
       setLoading(false);
     }
@@ -84,40 +101,102 @@ export const StatsCard: React.FC<StatsCardProps> = ({ isDark }) => {
     return status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
   };
 
-  if (loading) {
+  const renderContent = () => {
+    if (loading) {
+      return (
+        <View style={[styles.loadingContainer, { backgroundColor: isDark ? '#1e293b' : '#ffffff' }]}>
+          <ActivityIndicator size="large" color="#3b82f6" />
+          <Text style={[styles.loadingText, { color: isDark ? '#94a3b8' : '#64748b' }]}>
+            Loading stats...
+          </Text>
+        </View>
+      );
+    }
+
+    if (!stats) {
+      return (
+        <View style={[styles.emptyContainer, { backgroundColor: isDark ? '#1e293b' : '#ffffff' }]}>
+          <Ionicons name="stats-chart" size={48} color={isDark ? '#64748b' : '#94a3b8'} />
+          <Text style={[styles.emptyText, { color: isDark ? '#94a3b8' : '#64748b' }]}>
+            No data available for {TIME_PERIODS.find(p => p.key === selectedPeriod)?.label || 'this period'}
+          </Text>
+        </View>
+      );
+    }
+
+    const statusItems = [
+      { key: 'interested', value: stats.interested },
+      { key: 'not_interested', value: stats.not_interested },
+      { key: 'escalate_to_sonia', value: stats.escalate_to_sonia },
+      { key: 'declined', value: stats.declined },
+      { key: 'busy_call_later', value: stats.busy_call_later },
+      { key: 'married_engaged', value: stats.married_engaged },
+      { key: 'complete_soon', value: stats.complete_soon },
+      { key: 'need_help_completing', value: stats.need_help_completing },
+      { key: 'not_serious', value: stats.not_serious },
+      { key: 'pending', value: stats.pending },
+    ].filter(item => item.value > 0);
+
+    if (statusItems.length === 0) {
+       return (
+        <View style={[styles.emptyContainer, { backgroundColor: isDark ? '#1e293b' : '#ffffff' }]}>
+          <Ionicons name="stats-chart" size={48} color={isDark ? '#64748b' : '#94a3b8'} />
+          <Text style={[styles.emptyText, { color: isDark ? '#94a3b8' : '#64748b' }]}>
+            No records found for {TIME_PERIODS.find(p => p.key === selectedPeriod)?.label}
+          </Text>
+        </View>
+      );
+    }
+
     return (
-      <View style={[styles.loadingContainer, { backgroundColor: isDark ? '#1e293b' : '#ffffff' }]}>
-        <ActivityIndicator size="large" color="#3b82f6" />
-        <Text style={[styles.loadingText, { color: isDark ? '#94a3b8' : '#64748b' }]}>
-          Loading your stats...
-        </Text>
+      <View style={styles.statsGrid}>
+        {statusItems.map((item) => {
+          const percentage = stats.total > 0 ? (item.value / stats.total) * 100 : 0;
+          const color = getStatusColor(item.key);
+          
+          return (
+            <View
+              key={item.key}
+              style={[
+                styles.statCard,
+                { backgroundColor: isDark ? '#334155' : '#ffffff' }
+              ]}
+            >
+              <View style={styles.statHeader}>
+                <View style={[styles.statIcon, { backgroundColor: color + '20' }]}>
+                  <Ionicons
+                    name={getStatusIcon(item.key) as any}
+                    size={20}
+                    color={color}
+                  />
+                </View>
+                <Text style={[styles.statValue, { color: isDark ? '#f8fafc' : '#0f172a' }]}>
+                  {item.value}
+                </Text>
+              </View>
+              
+              <Text style={[styles.statLabel, { color: isDark ? '#94a3b8' : '#64748b' }]}>
+                {formatStatusLabel(item.key)}
+              </Text>
+              
+              <View style={[styles.progressBar, { backgroundColor: isDark ? '#475569' : '#e2e8f0' }]}>
+                <View
+                  style={[
+                    styles.progressFill,
+                    { backgroundColor: color, width: `${percentage}%` }
+                  ]}
+                />
+              </View>
+              
+              <Text style={[styles.percentage, { color: color }]}>
+                {percentage.toFixed(1)}%
+              </Text>
+            </View>
+          );
+        })}
       </View>
     );
-  }
-
-  if (!stats) {
-    return (
-      <View style={[styles.emptyContainer, { backgroundColor: isDark ? '#1e293b' : '#ffffff' }]}>
-        <Ionicons name="stats-chart" size={48} color={isDark ? '#64748b' : '#94a3b8'} />
-        <Text style={[styles.emptyText, { color: isDark ? '#94a3b8' : '#64748b' }]}>
-          No statistics available for {currentUser}
-        </Text>
-      </View>
-    );
-  }
-
-  const statusItems = [
-    { key: 'interested', value: stats.interested },
-    { key: 'not_interested', value: stats.not_interested },
-    { key: 'escalate_to_sonia', value: stats.escalate_to_sonia },
-    { key: 'declined', value: stats.declined },
-    { key: 'busy_call_later', value: stats.busy_call_later },
-    { key: 'married_engaged', value: stats.married_engaged },
-    { key: 'complete_soon', value: stats.complete_soon },
-    { key: 'need_help_completing', value: stats.need_help_completing },
-    { key: 'not_serious', value: stats.not_serious },
-    { key: 'pending', value: stats.pending },
-  ].filter(item => item.value > 0);
+  };
 
   return (
     <LinearGradient
@@ -137,93 +216,45 @@ export const StatsCard: React.FC<StatsCardProps> = ({ isDark }) => {
               My Statistics
             </Text>
             <Text style={[styles.subtitle, { color: isDark ? '#94a3b8' : '#64748b' }]}>
-              {currentUser} • Total: {stats.total}
+               {stats ? `Total: ${stats.total}` : currentUser}
             </Text>
           </View>
         </View>
         
-        {/* Toggle Button */}
-        <View style={styles.toggleContainer}>
-          <TouchableOpacity
-            style={[
-              styles.toggleButton,
-              !showCurrentDay && styles.activeToggle,
-              { backgroundColor: !showCurrentDay ? '#3b82f6' : (isDark ? '#374151' : '#f3f4f6') }
-            ]}
-            onPress={() => setShowCurrentDay(false)}
-          >
-            <Text style={[
-              styles.toggleText,
-              { color: !showCurrentDay ? '#ffffff' : (isDark ? '#94a3b8' : '#64748b') }
-            ]}>
-              All Time
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[
-              styles.toggleButton,
-              showCurrentDay && styles.activeToggle,
-              { backgroundColor: showCurrentDay ? '#3b82f6' : (isDark ? '#374151' : '#f3f4f6') }
-            ]}
-            onPress={() => setShowCurrentDay(true)}
-          >
-            <Text style={[
-              styles.toggleText,
-              { color: showCurrentDay ? '#ffffff' : (isDark ? '#94a3b8' : '#64748b') }
-            ]}>
-              Today
-            </Text>
-          </TouchableOpacity>
-        </View>
+        {/* Scrollable Filter Chips */}
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false}
+          style={styles.filterScroll}
+          contentContainerStyle={styles.filterContainer}
+        >
+          {TIME_PERIODS.map((period) => (
+            <TouchableOpacity
+              key={period.key}
+              style={[
+                styles.filterChip,
+                selectedPeriod === period.key && styles.activeFilterChip,
+                { 
+                  backgroundColor: selectedPeriod === period.key 
+                    ? '#3b82f6' 
+                    : (isDark ? '#374151' : '#f3f4f6') 
+                }
+              ]}
+              onPress={() => setSelectedPeriod(period.key)}
+            >
+              <Text style={[
+                styles.filterText,
+                { color: selectedPeriod === period.key ? '#ffffff' : (isDark ? '#94a3b8' : '#64748b') }
+              ]}>
+                {period.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.statsGrid}>
-          {statusItems.map((item) => {
-            const percentage = stats.total > 0 ? (item.value / stats.total) * 100 : 0;
-            const color = getStatusColor(item.key);
-            
-            return (
-              <View
-                key={item.key}
-                style={[
-                  styles.statCard,
-                  { backgroundColor: isDark ? '#334155' : '#ffffff' }
-                ]}
-              >
-                <View style={styles.statHeader}>
-                  <View style={[styles.statIcon, { backgroundColor: color + '20' }]}>
-                    <Ionicons
-                      name={getStatusIcon(item.key) as any}
-                      size={20}
-                      color={color}
-                    />
-                  </View>
-                  <Text style={[styles.statValue, { color: isDark ? '#f8fafc' : '#0f172a' }]}>
-                    {item.value}
-                  </Text>
-                </View>
-                
-                <Text style={[styles.statLabel, { color: isDark ? '#94a3b8' : '#64748b' }]}>
-                  {formatStatusLabel(item.key)}
-                </Text>
-                
-                <View style={[styles.progressBar, { backgroundColor: isDark ? '#475569' : '#e2e8f0' }]}>
-                  <View
-                    style={[
-                      styles.progressFill,
-                      { backgroundColor: color, width: `${percentage}%` }
-                    ]}
-                  />
-                </View>
-                
-                <Text style={[styles.percentage, { color: color }]}>
-                  {percentage.toFixed(1)}%
-                </Text>
-              </View>
-            );
-          })}
-        </View>
+        {renderContent()}
       </ScrollView>
     </LinearGradient>
   );
@@ -268,8 +299,31 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     marginTop: 2,
   },
+  filterScroll: {
+    flexGrow: 0,
+  },
+  filterContainer: {
+    gap: 8,
+  },
+  filterChip: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    marginBottom: 4,
+  },
+  activeFilterChip: {
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  filterText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
   content: {
     maxHeight: 300,
+    minHeight: 150,
   },
   statsGrid: {
     flexDirection: 'row',
@@ -343,28 +397,5 @@ const styles = StyleSheet.create({
     marginTop: 16,
     fontSize: 16,
     textAlign: 'center',
-  },
-  toggleContainer: {
-    flexDirection: 'row',
-    backgroundColor: 'rgba(148, 163, 184, 0.1)',
-    borderRadius: 8,
-    padding: 4,
-  },
-  toggleButton: {
-    flex: 1,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 6,
-    alignItems: 'center',
-  },
-  activeToggle: {
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  toggleText: {
-    fontSize: 14,
-    fontWeight: '600',
   },
 });

@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, useColorScheme, ScrollView } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, useColorScheme, View } from 'react-native';
 import { CustomPopup } from '../../components/CustomPopup';
 import { StatsCard } from '../../components/StatsCard';
 
@@ -124,7 +124,9 @@ export default function SettingsScreen() {
             </View>
           </View>
 
-          <StatsCard isDark={isDark} />
+          {userInfo?.role?.toUpperCase() === 'CUSTOMER_SUPPORT' && (
+            <StatsCard isDark={isDark} />
+          )}
         </View>
       </ScrollView>
 
