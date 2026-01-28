@@ -3,16 +3,16 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
 import { useEffect, useState } from "react";
 import {
-  ActivityIndicator,
-  FlatList,
-  Linking,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  useColorScheme,
-  View,
+    ActivityIndicator,
+    FlatList,
+    Linking,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    useColorScheme,
+    View,
 } from "react-native";
 import { Toast } from "../../components/Toast";
 import { UserDetailsModal } from "../../components/UserDetailsModal";
@@ -765,6 +765,7 @@ export default function OthersScreen() {
         user={selectedUser}
         isDark={isDark}
         onUserUpdate={handleUserUpdate}
+        isSuperAdmin={userRole === 'SUPER_ADMIN'}
       />
     </LinearGradient>
   );

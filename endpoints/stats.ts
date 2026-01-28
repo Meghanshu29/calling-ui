@@ -26,3 +26,11 @@ export const getAssignmentStats = async (period: string = 'all'): Promise<Assign
   const endpoint = `admin/assignment-stats?period=${period}`;
   return await ApiRequest("GET", endpoint);
 };
+
+export const getCallingDetails = async (username: string, period: string = 'all', status?: string) => {
+  let endpoint = `admin/customer-support/calling-details?username=${username}&time_period=${period}`;
+  if (status) {
+    endpoint += `&status=${status}`;
+  }
+  return await ApiRequest("GET", endpoint);
+};

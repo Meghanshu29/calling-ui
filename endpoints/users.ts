@@ -200,3 +200,16 @@ export const getInterestedNotRegisteredUsers = async (daysAgo = 2, limit = 1000,
     return response;
   }
 };
+
+export const updateUserInstructionAndAssignment = async (
+  user_id: number,
+  instruction: string,
+  assigned_to: string
+) => {
+  return await ApiRequest("PATCH", "admin/update-user-instruction-assignment", {
+    user_id,
+    instruction,
+    assigned_to,
+  });
+};
+

@@ -12,6 +12,7 @@ import {
     useColorScheme,
     View,
 } from "react-native";
+import { CallingDetailsModal } from "../../components/CallingDetailsModal";
 import { Toast } from "../../components/Toast";
 import { AssignmentStats, getAssignmentStats } from "../../endpoints/stats";
 import { useToast } from "../../hooks/useToast";
@@ -32,6 +33,9 @@ export default function StatisticsScreen() {
   const [selectedPeriod, setSelectedPeriod] = useState<string>('all');
   const [masterAgents, setMasterAgents] = useState<string[]>([]);
   const [userRole, setUserRole] = useState<string | null>(null);
+  const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
+  const [selectedStatus, setSelectedStatus] = useState<string | undefined>(undefined);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
   const { toast, showError, hideToast } = useToast();
@@ -108,6 +112,12 @@ export default function StatisticsScreen() {
     }
   };
 
+  const handleStatBlockPress = (agentName: string, status?: string) => {
+    setSelectedAgent(agentName);
+    setSelectedStatus(status);
+    setShowDetailsModal(true);
+  };
+
   const renderStatsCard = ({ item }: { item: AssignmentStats }) => {
     const totalCalls = item.total;
     const completionRate = totalCalls > 0 ? (((totalCalls - item.pending) / totalCalls) * 100).toFixed(1) : "0";
@@ -139,22 +149,34 @@ export default function StatisticsScreen() {
 
         {totalCalls > 0 ? (
           <View style={styles.statsGrid}>
-            <View style={styles.statItem}>
+            <TouchableOpacity 
+              style={styles.statItem}
+              onPress={() => handleStatBlockPress(item.assigned_to, 'Interested')}
+            >
               <Text style={[styles.statValue, { color: "#22c55e" }]}>{item.interested}</Text>
               <Text style={[styles.statLabel, { color: isDark ? "#94a3b8" : "#64748b" }]}>Interested</Text>
-            </View>
-            <View style={styles.statItem}>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={styles.statItem}
+              onPress={() => handleStatBlockPress(item.assigned_to, 'Not Interested')}
+            >
               <Text style={[styles.statValue, { color: "#ef4444" }]}>{item.not_interested}</Text>
               <Text style={[styles.statLabel, { color: isDark ? "#94a3b8" : "#64748b" }]}>Not Interested</Text>
-            </View>
-            <View style={styles.statItem}>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={styles.statItem}
+              onPress={() => handleStatBlockPress(item.assigned_to, 'Escalate to Sonia')}
+            >
               <Text style={[styles.statValue, { color: "#8b5cf6" }]}>{item.escalate_to_sonia}</Text>
               <Text style={[styles.statLabel, { color: isDark ? "#94a3b8" : "#64748b" }]}>Escalated</Text>
-            </View>
-            <View style={styles.statItem}>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={styles.statItem}
+              onPress={() => handleStatBlockPress(item.assigned_to, 'pending')}
+            >
               <Text style={[styles.statValue, { color: "#f59e0b" }]}>{item.pending}</Text>
               <Text style={[styles.statLabel, { color: isDark ? "#94a3b8" : "#64748b" }]}>Pending</Text>
-            </View>
+            </TouchableOpacity>
           </View>
         ) : (
           <View style={styles.noDataContainer}>
@@ -256,6 +278,15 @@ export default function StatisticsScreen() {
         type={toast.type}
         visible={toast.visible}
         onHide={hideToast}
+      />
+
+      <CallingDetailsModal
+        visible={showDetailsModal}
+        onClose={() => setShowDetailsModal(false)}
+        agentName={selectedAgent || ''}
+        timePeriod={selectedPeriod}
+        status={selectedStatus}
+        isDark={isDark}
       />
     </LinearGradient>
   );

@@ -3,26 +3,26 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
 import { useEffect, useState } from "react";
 import {
-  ActivityIndicator,
-  FlatList,
-  Modal,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  useColorScheme,
-  View,
+    ActivityIndicator,
+    FlatList,
+    Modal,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    useColorScheme,
+    View,
 } from "react-native";
 import { Toast } from "../../components/Toast";
 import { UserCard } from "../../components/UserCard";
 import { FilterState, UserFilter } from "../../components/UserFilter";
 import { useAuth } from "../../contexts/AuthContext";
 import {
-  GetUnregisterdUsers,
-  getUnregisteredUsers,
-  sendWhatsAppMessage,
-  updateFeedback,
+    GetUnregisterdUsers,
+    getUnregisteredUsers,
+    sendWhatsAppMessage,
+    updateFeedback,
 } from "../../endpoints/users";
 import { useToast } from "../../hooks/useToast";
 
@@ -777,6 +777,7 @@ export default function HomeScreen() {
             isLastUser={false}
             onFetchUsers={handleFetchAllUsers}
             onOpenFilters={() => setShowFilter(true)}
+            isSuperAdmin={userRole?.toUpperCase() === "SUPER_ADMIN"}
           />
         )
       )}

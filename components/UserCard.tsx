@@ -2,17 +2,18 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useState } from "react";
 import {
-  Animated,
-  FlatList,
-  Linking,
-  Modal,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    Animated,
+    FlatList,
+    Linking,
+    Modal,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View
 } from "react-native";
-import { sendWhatsAppMessage } from "../endpoints/users";
+import { sendWhatsAppMessage, updateUserInstructionAndAssignment } from "../endpoints/users";
 import { MatchDetailsModal } from "./MatchDetailsModal";
 import { QuickActions } from "./QuickActions";
 import { SmartStatusSelector } from "./SmartStatusSelector";
@@ -45,6 +46,7 @@ interface UserCardProps {
   onStatusChange: (status: string) => void;
   onFetchUsers?: () => void;
   onOpenFilters?: () => void;
+  isSuperAdmin?: boolean;
 }
 
 const statusOptions = [
@@ -72,6 +74,7 @@ export const UserCard: React.FC<UserCardProps> = ({
   onStatusChange,
   onFetchUsers,
   onOpenFilters,
+  isSuperAdmin = false,
 }) => {
   const [showDropdown, setShowDropdown] = useState(false);
   const [showMatchDetails, setShowMatchDetails] = useState(false);
@@ -82,6 +85,14 @@ export const UserCard: React.FC<UserCardProps> = ({
   const [slideAnim] = useState(new Animated.Value(0));
   const [pulseAnim] = useState(new Animated.Value(1));
   const borderAnimation = new Animated.Value(0);
+  const [editableInstruction, setEditableInstruction] = useState('');
+  const [updatingInstruction, setUpdatingInstruction] = useState(false);
+
+  useEffect(() => {
+    if (user) {
+      setEditableInstruction(user.instruction || '');
+    }
+  }, [user]);
 
   useEffect(() => {
     const animate = () => {
@@ -174,6 +185,39 @@ export const UserCard: React.FC<UserCardProps> = ({
         pendingWhatsAppData.isInterested,
       );
       setPendingWhatsAppData(null);
+    }
+  };
+
+  const handleUpdateInstruction = async () => {
+    if (!user) return;
+    
+    if (!editableInstruction.trim()) {
+      alert('Please enter an instruction');
+      return;
+    }
+    
+    const payload = {
+      user_id: user.id,
+      instruction: editableInstruction,
+      assigned_to: user.assigned_to
+    };
+    
+    console.log('🔵 Update Instruction Payload:', JSON.stringify(payload, null, 2));
+    
+    setUpdatingInstruction(true);
+    try {
+      await updateUserInstructionAndAssignment(
+        user.id,
+        editableInstruction,
+        user.assigned_to
+      );
+      console.log('✅ Instruction updated successfully!');
+      alert('Instruction updated successfully!');
+    } catch (error) {
+      console.error('❌ Error updating instruction:', error);
+      alert('Failed to update instruction');
+    } finally {
+      setUpdatingInstruction(false);
     }
   };
 
@@ -364,16 +408,53 @@ export const UserCard: React.FC<UserCardProps> = ({
                 Call Instructions
               </Text>
             </View>
-            <Text
-              style={[
-                styles.instructionText,
-                { color: isDark ? "#e2e8f0" : "#374151" },
-              ]}
-            >
-              {user.tag === "matched_users"
-                ? "Click 'User Details' to view matches"
-                : user.instruction}
-            </Text>
+            
+            {user.tag === "matched_users" ? (
+              <Text
+                style={[
+                  styles.instructionText,
+                  { color: isDark ? "#e2e8f0" : "#374151" },
+                ]}
+              >
+                Click 'User Details' to view matches
+              </Text>
+            ) : (
+              <>
+                <TextInput
+                  style={[
+                    styles.instructionInput,
+                    {
+                      backgroundColor: isDark ? "#1e293b" : "#ffffff",
+                      borderColor: isDark ? "#64748b" : "#bfdbfe",
+                      color: isDark ? "#f8fafc" : "#0f172a",
+                    }
+                  ]}
+                  placeholder="Enter call instructions..."
+                  placeholderTextColor={isDark ? "#94a3b8" : "#64748b"}
+                  value={editableInstruction}
+                  onChangeText={setEditableInstruction}
+                  multiline
+                  numberOfLines={3}
+                  textAlignVertical="top"
+                />
+                <TouchableOpacity
+                  style={[
+                    styles.updateInstructionBtn,
+                    {
+                      backgroundColor: isDark ? "#3b82f6" : "#2563eb",
+                      opacity: updatingInstruction ? 0.6 : 1,
+                    }
+                  ]}
+                  onPress={handleUpdateInstruction}
+                  disabled={updatingInstruction}
+                >
+                  <Ionicons name="checkmark-circle" size={16} color="#ffffff" />
+                  <Text style={styles.updateInstructionText}>
+                    {updatingInstruction ? "Updating..." : "Update Instruction"}
+                  </Text>
+                </TouchableOpacity>
+              </>
+            )}
           </View>
 
           {user.tag === "matched_users" && (
@@ -400,98 +481,102 @@ export const UserCard: React.FC<UserCardProps> = ({
             </TouchableOpacity>
           )}
 
-          {/* Smart Status Selector */}
-          <SmartStatusSelector
-            selectedStatus={selectedStatus}
-            onStatusChange={onStatusChange}
-            isDark={isDark}
-          />
+          {/* Smart Status Selector - Hidden for Super Admin */}
+          {!isSuperAdmin && (
+            <>
+              <SmartStatusSelector
+                selectedStatus={selectedStatus}
+                onStatusChange={onStatusChange}
+                isDark={isDark}
+              />
 
-          {/* More Options Button */}
-          <TouchableOpacity
-            style={[
-              styles.moreOptionsButton,
-              { backgroundColor: isDark ? "#475569" : "#f1f5f9" },
-            ]}
-            onPress={() => setShowDropdown(true)}
-          >
-            <Ionicons
-              name="ellipsis-horizontal"
-              size={20}
-              color={isDark ? "#94a3b8" : "#64748b"}
-            />
-            <Text
-              style={[
-                styles.moreOptionsText,
-                { color: isDark ? "#94a3b8" : "#64748b" },
-              ]}
-            >
-              All Options
-            </Text>
-          </TouchableOpacity>
-
-          <View style={styles.navigationButtons}>
-            {!isFirstUser && (
+              {/* More Options Button */}
               <TouchableOpacity
-                onPress={onPrevious}
-                style={styles.prevButtonContainer}
-              >
-                <LinearGradient
-                  colors={["#6b7280", "#4b5563"] as const}
-                  style={styles.prevButton}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                >
-                  <Ionicons name="arrow-back" size={20} color="white" />
-                  <Text style={styles.prevButtonText}>Previous</Text>
-                </LinearGradient>
-              </TouchableOpacity>
-            )}
-
-            <TouchableOpacity
-              onPress={animateSlide}
-              style={[
-                styles.buttonContainer,
-                !isFirstUser && styles.nextButton,
-              ]}
-              disabled={!selectedStatus}
-            >
-              <LinearGradient
-                colors={
-                  selectedStatus
-                    ? ["#3b82f6", "#1d4ed8"]
-                    : isDark 
-                      ? ["#334155", "#1e293b"] 
-                      : ["#f1f5f9", "#e2e8f0"]
-                }
                 style={[
-                  styles.submitButton,
-                  !selectedStatus && { borderWidth: 1, borderColor: isDark ? "#475569" : "#cbd5e1" }
+                  styles.moreOptionsButton,
+                  { backgroundColor: isDark ? "#475569" : "#f1f5f9" },
                 ]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
+                onPress={() => setShowDropdown(true)}
               >
-                <Animated.Text style={[
-                  styles.submitButtonText,
-                  !selectedStatus && { 
-                    color: isDark ? "#94a3b8" : "#64748b",
-                    opacity: pulseAnim
-                  }
-                ]}>
-                  {!selectedStatus
-                    ? " Select Status First"
-                    : isLastUser
-                      ? "✅ Complete"
-                      : "Next Person"}
-                </Animated.Text>
                 <Ionicons
-                  name={isLastUser ? "checkmark-circle" : "arrow-forward"}
+                  name="ellipsis-horizontal"
                   size={20}
-                  color={selectedStatus ? "white" : (isDark ? "#94a3b8" : "#64748b")}
+                  color={isDark ? "#94a3b8" : "#64748b"}
                 />
-              </LinearGradient>
-            </TouchableOpacity>
-          </View>
+                <Text
+                  style={[
+                    styles.moreOptionsText,
+                    { color: isDark ? "#94a3b8" : "#64748b" },
+                  ]}
+                >
+                  All Options
+                </Text>
+              </TouchableOpacity>
+
+              <View style={styles.navigationButtons}>
+                {!isFirstUser && (
+                  <TouchableOpacity
+                    onPress={onPrevious}
+                    style={styles.prevButtonContainer}
+                  >
+                    <LinearGradient
+                      colors={["#6b7280", "#4b5563"] as const}
+                      style={styles.prevButton}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                    >
+                      <Ionicons name="arrow-back" size={20} color="white" />
+                      <Text style={styles.prevButtonText}>Previous</Text>
+                    </LinearGradient>
+                  </TouchableOpacity>
+                )}
+
+                <TouchableOpacity
+                  onPress={animateSlide}
+                  style={[
+                    styles.buttonContainer,
+                    !isFirstUser && styles.nextButton,
+                  ]}
+                  disabled={!selectedStatus}
+                >
+                  <LinearGradient
+                    colors={
+                      selectedStatus
+                        ? ["#3b82f6", "#1d4ed8"]
+                        : isDark 
+                          ? ["#334155", "#1e293b"] 
+                          : ["#f1f5f9", "#e2e8f0"]
+                    }
+                    style={[
+                      styles.submitButton,
+                      !selectedStatus && { borderWidth: 1, borderColor: isDark ? "#475569" : "#cbd5e1" }
+                    ]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                  >
+                    <Animated.Text style={[
+                      styles.submitButtonText,
+                      !selectedStatus && { 
+                        color: isDark ? "#94a3b8" : "#64748b",
+                        opacity: pulseAnim
+                      }
+                    ]}>
+                      {!selectedStatus
+                        ? "🎯 Select Status First"
+                        : isLastUser
+                          ? "✅ Complete"
+                          : "Next Person"}
+                    </Animated.Text>
+                    <Ionicons
+                      name={isLastUser ? "checkmark-circle" : "arrow-forward"}
+                      size={20}
+                      color={selectedStatus ? "white" : (isDark ? "#94a3b8" : "#64748b")}
+                    />
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
+            </>
+          )}
         </View>
       </ScrollView>
 
@@ -791,6 +876,28 @@ const styles = StyleSheet.create({
   },
   detailsBtnText: {
     fontSize: 16,
+    fontWeight: "600",
+  },
+  instructionInput: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+    fontSize: 14,
+    minHeight: 80,
+    marginBottom: 12,
+  },
+  updateInstructionBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    gap: 8,
+  },
+  updateInstructionText: {
+    color: "#ffffff",
+    fontSize: 14,
     fontWeight: "600",
   },
 });

@@ -13,6 +13,7 @@ import {
     View,
 } from "react-native";
 import { Toast } from "../components/Toast";
+import { UserDetailsModal } from "../components/UserDetailsModal";
 import { FilterState, UserFilter } from "../components/UserFilter";
 import { useAuth } from "../contexts/AuthContext";
 import { AssignmentStats } from "../endpoints/stats";
@@ -447,6 +448,15 @@ export default function SuperAdminScreen() {
         onApplyFilters={handleApplyFilters}
         currentFilters={filters}
         isDark={isDark}
+      />
+
+      <UserDetailsModal
+        visible={showUserDetails}
+        onClose={() => setShowUserDetails(false)}
+        user={selectedUser}
+        isDark={isDark}
+        onUserUpdate={fetchUsers}
+        isSuperAdmin={true}
       />
     </LinearGradient>
   );

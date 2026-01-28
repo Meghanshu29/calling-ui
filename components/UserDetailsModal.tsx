@@ -1,19 +1,19 @@
-import React, { useState } from 'react';
-import { Modal, View, Text, StyleSheet, TouchableOpacity, ScrollView, Linking, TextInput } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { updateFeedback } from '../endpoints/users';
+import React, { useEffect, useState } from 'react';
+import { Linking, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { updateFeedback, updateUserInstructionAndAssignment } from '../endpoints/users';
 import { GradientButton } from './GradientButton';
 
 interface User {
   id: number;
   name: string;
-  mobile_no: string;
+  mobile_no: string | number | null;
   instruction: string | null;
   status: string;
   feedback: string | null;
   assigned_to: string;
-  tag: string;
+  tag: string | null;
   priority: string;
   is_processed: boolean;
   created_at: string;
@@ -26,12 +26,21 @@ interface UserDetailsModalProps {
   user: User | null;
   isDark: boolean;
   onUserUpdate?: () => void;
+  isSuperAdmin?: boolean;
 }
 
-export const UserDetailsModal: React.FC<UserDetailsModalProps> = ({ visible, onClose, user, isDark, onUserUpdate }) => {
+export const UserDetailsModal: React.FC<UserDetailsModalProps> = ({ visible, onClose, user, isDark, onUserUpdate, isSuperAdmin = false }) => {
   const [selectedStatus, setSelectedStatus] = useState('');
   const [feedback, setFeedback] = useState('');
   const [updating, setUpdating] = useState(false);
+  const [editableInstruction, setEditableInstruction] = useState('');
+  const [updatingInstruction, setUpdatingInstruction] = useState(false);
+  
+  useEffect(() => {
+    if (user) {
+      setEditableInstruction(user.instruction || '');
+    }
+  }, [user]);
   
   if (!user) return null;
 
@@ -70,6 +79,29 @@ export const UserDetailsModal: React.FC<UserDetailsModalProps> = ({ visible, onC
       alert('Failed to update status');
     } finally {
       setUpdating(false);
+    }
+  };
+
+  const handleUpdateInstruction = async () => {
+    if (!editableInstruction.trim()) {
+      alert('Please enter an instruction');
+      return;
+    }
+    
+    setUpdatingInstruction(true);
+    try {
+      await updateUserInstructionAndAssignment(
+        user.id,
+        editableInstruction,
+        user.assigned_to
+      );
+      alert('Instruction updated successfully!');
+      onUserUpdate?.();
+    } catch (error) {
+      console.error('Error updating instruction:', error);
+      alert('Failed to update instruction');
+    } finally {
+      setUpdatingInstruction(false);
     }
   };
 
@@ -114,28 +146,66 @@ export const UserDetailsModal: React.FC<UserDetailsModalProps> = ({ visible, onC
                 <View style={styles.detailContent}>
                   <Text style={[styles.detailLabel, { color: isDark ? '#94a3b8' : '#6b7280' }]}>Phone</Text>
                   <View>
-                    {user.mobile_no.split(',').map((phone, index) => (
-                      <TouchableOpacity
-                        key={index}
-                        onPress={() => handlePhonePress(phone)}
-                        style={styles.phoneButton}
-                      >
-                        <Text style={[styles.detailValue, styles.phoneText, { color: '#3b82f6' }]}>
-                          {phone.trim()}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
+                    {user.mobile_no ? (
+                      String(user.mobile_no).split(',').map((phone: string, index: number) => (
+                        <TouchableOpacity
+                          key={index}
+                          onPress={() => handlePhonePress(phone)}
+                          style={styles.phoneButton}
+                        >
+                          <Text style={[styles.detailValue, styles.phoneText, { color: '#3b82f6' }]}>
+                            {phone.trim()}
+                          </Text>
+                        </TouchableOpacity>
+                      ))
+                    ) : (
+                      <Text style={[styles.detailValue, { color: isDark ? '#94a3b8' : '#6b7280' }]}>No phone number</Text>
+                    )}
                   </View>
                 </View>
               </View>
 
-              <View style={[styles.detailRow, { borderBottomColor: isDark ? '#475569' : '#e5e7eb' }]}>
-                <Ionicons name="flag" size={20} color={isDark ? '#60a5fa' : '#3b82f6'} />
-                <View style={styles.detailContent}>
-                  <Text style={[styles.detailLabel, { color: isDark ? '#94a3b8' : '#6b7280' }]}>Status</Text>
-                  <Text style={[styles.detailValue, { color: isDark ? '#f8fafc' : '#0f172a' }]}>{user.status}</Text>
+              {/* Call Instructions - Editable */}
+              <View style={[styles.detailRow, { borderBottomColor: isDark ? '#475569' : '#e5e7eb', flexDirection: 'column', alignItems: 'flex-start' }]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                  <Ionicons name="clipboard-outline" size={20} color={isDark ? '#60a5fa' : '#3b82f6'} />
+                  <Text style={[styles.detailLabel, { color: isDark ? '#94a3b8' : '#6b7280', marginLeft: 16 }]}>Call Instructions</Text>
                 </View>
+                <TextInput
+                  style={[
+                    styles.instructionInput,
+                    {
+                      backgroundColor: isDark ? '#334155' : '#ffffff',
+                      borderColor: isDark ? '#64748b' : '#e2e8f0',
+                      color: isDark ? '#f8fafc' : '#0f172a',
+                    }
+                  ]}
+                  placeholder="Enter call instructions..."
+                  placeholderTextColor={isDark ? '#94a3b8' : '#64748b'}
+                  value={editableInstruction}
+                  onChangeText={setEditableInstruction}
+                  multiline
+                  numberOfLines={3}
+                  textAlignVertical="top"
+                />
+                <GradientButton
+                  onPress={handleUpdateInstruction}
+                  loading={updatingInstruction}
+                >
+                  Update Instruction
+                </GradientButton>
               </View>
+
+
+              {!isSuperAdmin && (
+                <View style={[styles.detailRow, { borderBottomColor: isDark ? '#475569' : '#e5e7eb' }]}>
+                  <Ionicons name="flag" size={20} color={isDark ? '#60a5fa' : '#3b82f6'} />
+                  <View style={styles.detailContent}>
+                    <Text style={[styles.detailLabel, { color: isDark ? '#94a3b8' : '#6b7280' }]}>Status</Text>
+                    <Text style={[styles.detailValue, { color: isDark ? '#f8fafc' : '#0f172a' }]}>{user.status}</Text>
+                  </View>
+                </View>
+              )}
 
               <View style={[styles.detailRow, { borderBottomColor: isDark ? '#475569' : '#e5e7eb' }]}>
                 <Ionicons name="pricetag" size={20} color={isDark ? '#60a5fa' : '#3b82f6'} />
@@ -161,15 +231,17 @@ export const UserDetailsModal: React.FC<UserDetailsModalProps> = ({ visible, onC
                 </View>
               </View>
 
-              <View style={[styles.detailRow, { borderBottomColor: isDark ? '#475569' : '#e5e7eb' }]}>
-                <Ionicons name="chatbubble" size={20} color={isDark ? '#60a5fa' : '#3b82f6'} />
-                <View style={styles.detailContent}>
-                  <Text style={[styles.detailLabel, { color: isDark ? '#94a3b8' : '#6b7280' }]}>Feedback</Text>
-                  <Text style={[styles.detailValue, { color: isDark ? '#f8fafc' : '#0f172a' }]}>
-                    {user.feedback || 'No feedback'}
-                  </Text>
+              {!isSuperAdmin && (
+                <View style={[styles.detailRow, { borderBottomColor: isDark ? '#475569' : '#e5e7eb' }]}>
+                  <Ionicons name="chatbubble" size={20} color={isDark ? '#60a5fa' : '#3b82f6'} />
+                  <View style={styles.detailContent}>
+                    <Text style={[styles.detailLabel, { color: isDark ? '#94a3b8' : '#6b7280' }]}>Feedback</Text>
+                    <Text style={[styles.detailValue, { color: isDark ? '#f8fafc' : '#0f172a' }]}>
+                      {user.feedback || 'No feedback'}
+                    </Text>
+                  </View>
                 </View>
-              </View>
+              )}
 
               <View style={styles.detailRow}>
                 <Ionicons name="calendar" size={20} color={isDark ? '#60a5fa' : '#3b82f6'} />
@@ -182,59 +254,61 @@ export const UserDetailsModal: React.FC<UserDetailsModalProps> = ({ visible, onC
               </View>
             </View>
 
-            <View style={[styles.updateSection, { backgroundColor: isDark ? '#475569' : '#f0f9ff' }]}>
-              <Text style={[styles.updateTitle, { color: isDark ? '#f8fafc' : '#0f172a' }]}>Update Status</Text>
-              
-              <View style={styles.statusDropdown}>
-                <Text style={[styles.inputLabel, { color: isDark ? '#94a3b8' : '#6b7280' }]}>Status</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.statusScroll}>
-                  {statusOptions.map((status) => (
-                    <TouchableOpacity
-                      key={status}
-                      style={[
-                        styles.statusChip,
-                        {
-                          backgroundColor: selectedStatus === status ? '#3b82f6' : (isDark ? '#334155' : '#e2e8f0'),
-                        }
-                      ]}
-                      onPress={() => setSelectedStatus(status)}
-                    >
-                      <Text style={[
-                        styles.statusChipText,
-                        { color: selectedStatus === status ? '#ffffff' : (isDark ? '#94a3b8' : '#64748b') }
-                      ]}>
-                        {status}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </View>
+            {!isSuperAdmin && (
+              <View style={[styles.updateSection, { backgroundColor: isDark ? '#475569' : '#f0f9ff' }]}>
+                <Text style={[styles.updateTitle, { color: isDark ? '#f8fafc' : '#0f172a' }]}>Update Status</Text>
+                
+                <View style={styles.statusDropdown}>
+                  <Text style={[styles.inputLabel, { color: isDark ? '#94a3b8' : '#6b7280' }]}>Status</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.statusScroll}>
+                    {statusOptions.map((status) => (
+                      <TouchableOpacity
+                        key={status}
+                        style={[
+                          styles.statusChip,
+                          {
+                            backgroundColor: selectedStatus === status ? '#3b82f6' : (isDark ? '#334155' : '#e2e8f0'),
+                          }
+                        ]}
+                        onPress={() => setSelectedStatus(status)}
+                      >
+                        <Text style={[
+                          styles.statusChipText,
+                          { color: selectedStatus === status ? '#ffffff' : (isDark ? '#94a3b8' : '#64748b') }
+                        ]}>
+                          {status}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
 
-              <View style={styles.feedbackSection}>
-                <Text style={[styles.inputLabel, { color: isDark ? '#94a3b8' : '#6b7280' }]}>Feedback</Text>
-                <TextInput
-                  style={[
-                    styles.feedbackInput,
-                    {
-                      backgroundColor: isDark ? '#334155' : '#ffffff',
-                      borderColor: isDark ? '#64748b' : '#e2e8f0',
-                      color: isDark ? '#f8fafc' : '#0f172a',
-                    }
-                  ]}
-                  placeholder="Enter feedback..."
-                  placeholderTextColor={isDark ? '#94a3b8' : '#64748b'}
-                  value={feedback}
-                  onChangeText={setFeedback}
-                  multiline
-                  numberOfLines={3}
-                  textAlignVertical="top"
-                />
-              </View>
+                <View style={styles.feedbackSection}>
+                  <Text style={[styles.inputLabel, { color: isDark ? '#94a3b8' : '#6b7280' }]}>Feedback</Text>
+                  <TextInput
+                    style={[
+                      styles.feedbackInput,
+                      {
+                        backgroundColor: isDark ? '#334155' : '#ffffff',
+                        borderColor: isDark ? '#64748b' : '#e2e8f0',
+                        color: isDark ? '#f8fafc' : '#0f172a',
+                      }
+                    ]}
+                    placeholder="Enter feedback..."
+                    placeholderTextColor={isDark ? '#94a3b8' : '#64748b'}
+                    value={feedback}
+                    onChangeText={setFeedback}
+                    multiline
+                    numberOfLines={3}
+                    textAlignVertical="top"
+                  />
+                </View>
 
-              <GradientButton onPress={handleUpdateStatus} loading={updating}>
-                Update Status
-              </GradientButton>
-            </View>
+                <GradientButton onPress={handleUpdateStatus} loading={updating}>
+                  Update Status
+                </GradientButton>
+              </View>
+            )}
           </ScrollView>
         </LinearGradient>
       </View>
@@ -359,5 +433,14 @@ const styles = StyleSheet.create({
     padding: 12,
     fontSize: 16,
     minHeight: 80,
+  },
+  instructionInput: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+    fontSize: 16,
+    minHeight: 80,
+    width: '100%',
+    marginBottom: 12,
   },
 });
