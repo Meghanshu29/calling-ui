@@ -25,12 +25,12 @@ export async function ApiRequest(
     // Get auth token and user info
     const authToken = await AsyncStorage.getItem("authToken");
     const userInfo = await AsyncStorage.getItem("userInfo");
-    let userId = "ADMIN";
+    let userId = "";
 
     if (userInfo) {
       try {
         const parsedUser = JSON.parse(userInfo);
-        userId = parsedUser.username || parsedUser.email;
+        userId = parsedUser.username || parsedUser.email || "";
       } catch (error) {
         console.error("Error parsing user info:", error);
       }
@@ -38,7 +38,7 @@ export async function ApiRequest(
       // Try to extract user ID from JWT token
       try {
         const payload = JSON.parse(atob(authToken.split(".")[1]));
-        userId = payload.sub || payload.email;
+        userId = payload.sub || payload.email || "";
       } catch (error) {
         console.error("Error decoding token:", error);
       }
@@ -51,16 +51,12 @@ export async function ApiRequest(
     const commonHeaders = isFormData
       ? {
           "X-User-Id": userId,
-          Authorization: authToken
-            ? `Bearer ${authToken}`
-            : "Bearer CH3spwHRqPWnIHJ9fpMndI",
+          Authorization: authToken ? `Bearer ${authToken}` : "",
         }
       : {
           "Content-Type": "application/json",
           "X-User-Id": userId,
-          Authorization: authToken
-            ? `Bearer ${authToken}`
-            : "Bearer CH3spwHRqPWnIHJ9fpMndI",
+          Authorization: authToken ? `Bearer ${authToken}` : "",
         };
 
     const finalHeaders = headers
@@ -105,10 +101,11 @@ export async function ApiRequestNoLoader(
   try {
     const host = await getHost();
     const url = host + endpoint;
+    const authToken = await AsyncStorage.getItem("authToken");
+
     const commonHeaders = {
       "Content-Type": "application/json",
-      "X-User-Id": "ADMIN",
-      Authorization: "Bearer CH3spwHRqPWnIHJ9fpMndI",
+      Authorization: authToken ? `Bearer ${authToken}` : "",
     };
 
     const response = await fetch(url, {

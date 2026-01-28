@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
+import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
     ActivityIndicator,
@@ -74,6 +75,7 @@ export default function HomeScreen() {
   const isDark = colorScheme === "dark";
   const { toast, showSuccess, showError, hideToast } = useToast();
   const { logout } = useAuth();
+  const router = useRouter();
 
   useEffect(() => {
     loadUserInfo();
@@ -91,14 +93,12 @@ export default function HomeScreen() {
         setLoggedInUser(username);
         setUserRole(role);
       } else {
-        console.log("DEBUG: No userInfo found, defaulting to ADMIN");
-        setLoggedInUser("ADMIN");
-        setUserRole("ADMIN");
+        console.log("DEBUG: No userInfo found, redirecting to login");
+        router.replace('/login');
       }
     } catch (error) {
       console.error("DEBUG: Error loading user info:", error);
-      setLoggedInUser("ADMIN");
-      setUserRole("ADMIN");
+      router.replace('/login');
     }
   };
 

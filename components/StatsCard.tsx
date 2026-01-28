@@ -41,24 +41,31 @@ export const StatsCard: React.FC<StatsCardProps> = ({ isDark }) => {
     try {
       // Get current user
       const userInfo = await AsyncStorage.getItem('userInfo');
-      let username = 'ADMIN';
+      let username = '';
       if (userInfo) {
         const parsedUser = JSON.parse(userInfo);
-        username = parsedUser.username || parsedUser.email;
+        username = parsedUser.username || parsedUser.email || '';
       }
       setCurrentUser(username);
+      
+      console.log('📊 Fetching stats for period:', selectedPeriod, 'Username:', username);
 
       // Fetch stats
       const response = await getAssignmentStats(selectedPeriod);
-      // Ensure response.data is an array before trying to find
-      if (response && Array.isArray(response.data)) {
-        const userStats = response.data.find(stat => stat.assigned_to === username);
+      
+      if (response && response.success && Array.isArray(response.data)) {
+        // Use case-insensitive matching and trim whitespace
+        const userStats = response.data.find(stat => 
+          stat.assigned_to?.toLowerCase().trim() === username.toLowerCase().trim()
+        );
+        
+        console.log('✅ Found stats for user:', userStats ? 'Yes' : 'No');
         setStats(userStats || null);
       } else {
         setStats(null);
       }
     } catch (error) {
-      console.error('Error loading stats:', error);
+      console.error('❌ Error loading stats:', error);
       setStats(null);
     } finally {
       setLoading(false);
@@ -76,7 +83,8 @@ export const StatsCard: React.FC<StatsCardProps> = ({ isDark }) => {
       case 'complete_soon': return '#10b981';
       case 'need_help_completing': return '#3b82f6';
       case 'not_serious': return '#f97316';
-      case 'pending': return '#6b7280';
+      case 'pending': return '#6366f1';
+      case 'no_status': return '#94a3b8';
       default: return '#64748b';
     }
   };
@@ -93,6 +101,7 @@ export const StatsCard: React.FC<StatsCardProps> = ({ isDark }) => {
       case 'need_help_completing': return 'help-circle';
       case 'not_serious': return 'warning';
       case 'pending': return 'hourglass';
+      case 'no_status': return 'remove-circle';
       default: return 'ellipse';
     }
   };
@@ -104,7 +113,7 @@ export const StatsCard: React.FC<StatsCardProps> = ({ isDark }) => {
   const renderContent = () => {
     if (loading) {
       return (
-        <View style={[styles.loadingContainer, { backgroundColor: isDark ? '#1e293b' : '#ffffff' }]}>
+        <View style={styles.centerContent}>
           <ActivityIndicator size="large" color="#3b82f6" />
           <Text style={[styles.loadingText, { color: isDark ? '#94a3b8' : '#64748b' }]}>
             Loading stats...
@@ -115,14 +124,18 @@ export const StatsCard: React.FC<StatsCardProps> = ({ isDark }) => {
 
     if (!stats) {
       return (
-        <View style={[styles.emptyContainer, { backgroundColor: isDark ? '#1e293b' : '#ffffff' }]}>
-          <Ionicons name="stats-chart" size={48} color={isDark ? '#64748b' : '#94a3b8'} />
+        <View style={styles.centerContent}>
+          <Ionicons name="stats-chart" size={48} color={isDark ? '#475569' : '#cbd5e1'} />
           <Text style={[styles.emptyText, { color: isDark ? '#94a3b8' : '#64748b' }]}>
-            No data available for {TIME_PERIODS.find(p => p.key === selectedPeriod)?.label || 'this period'}
+            No statistics found for {currentUser} in this period.
           </Text>
         </View>
       );
     }
+
+    const completionRate = stats.total > 0 
+      ? (((stats.total - stats.pending) / stats.total) * 100).toFixed(1)
+      : '0';
 
     const statusItems = [
       { key: 'interested', value: stats.interested },
@@ -135,65 +148,70 @@ export const StatsCard: React.FC<StatsCardProps> = ({ isDark }) => {
       { key: 'need_help_completing', value: stats.need_help_completing },
       { key: 'not_serious', value: stats.not_serious },
       { key: 'pending', value: stats.pending },
+      { key: 'no_status', value: stats.no_status || 0 },
     ].filter(item => item.value > 0);
 
-    if (statusItems.length === 0) {
-       return (
-        <View style={[styles.emptyContainer, { backgroundColor: isDark ? '#1e293b' : '#ffffff' }]}>
-          <Ionicons name="stats-chart" size={48} color={isDark ? '#64748b' : '#94a3b8'} />
-          <Text style={[styles.emptyText, { color: isDark ? '#94a3b8' : '#64748b' }]}>
-            No records found for {TIME_PERIODS.find(p => p.key === selectedPeriod)?.label}
-          </Text>
-        </View>
-      );
-    }
-
     return (
-      <View style={styles.statsGrid}>
-        {statusItems.map((item) => {
-          const percentage = stats.total > 0 ? (item.value / stats.total) * 100 : 0;
-          const color = getStatusColor(item.key);
-          
-          return (
-            <View
-              key={item.key}
-              style={[
-                styles.statCard,
-                { backgroundColor: isDark ? '#334155' : '#ffffff' }
-              ]}
-            >
-              <View style={styles.statHeader}>
-                <View style={[styles.statIcon, { backgroundColor: color + '20' }]}>
-                  <Ionicons
-                    name={getStatusIcon(item.key) as any}
-                    size={20}
-                    color={color}
+      <View style={styles.statsWrapper}>
+        <View style={[styles.summaryRow, { borderBottomColor: isDark ? '#334155' : '#f1f5f9' }]}>
+          <View style={styles.summaryItem}>
+            <Text style={[styles.summaryLabel, { color: isDark ? '#94a3b8' : '#64748b' }]}>Total Calls</Text>
+            <Text style={[styles.summaryValue, { color: isDark ? '#f8fafc' : '#0f172a' }]}>{stats.total}</Text>
+          </View>
+          <View style={styles.summaryItem}>
+            <Text style={[styles.summaryLabel, { color: isDark ? '#94a3b8' : '#64748b' }]}>Completion Rate</Text>
+            <View style={styles.rateWrapper}>
+              <Text style={[styles.summaryValue, { color: '#3b82f6' }]}>{completionRate}%</Text>
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.statsGrid}>
+          {statusItems.map((item) => {
+            const percentage = stats.total > 0 ? (item.value / stats.total) * 100 : 0;
+            const color = getStatusColor(item.key);
+            
+            return (
+              <View
+                key={item.key}
+                style={[
+                  styles.statCard,
+                  { backgroundColor: isDark ? '#1e293b' : '#f8fafc' }
+                ]}
+              >
+                <View style={styles.statHeader}>
+                  <View style={[styles.statIcon, { backgroundColor: color + '20' }]}>
+                    <Ionicons
+                      name={getStatusIcon(item.key) as any}
+                      size={18}
+                      color={color}
+                    />
+                  </View>
+                  <Text style={[styles.statValue, { color: isDark ? '#f8fafc' : '#0f172a' }]}>
+                    {item.value}
+                  </Text>
+                </View>
+                
+                <Text style={[styles.statLabel, { color: isDark ? '#94a3b8' : '#64748b' }]} numberOfLines={1}>
+                  {formatStatusLabel(item.key)}
+                </Text>
+                
+                <View style={[styles.progressBar, { backgroundColor: isDark ? '#334155' : '#e2e8f0' }]}>
+                  <View
+                    style={[
+                      styles.progressFill,
+                      { backgroundColor: color, width: `${percentage}%` }
+                    ]}
                   />
                 </View>
-                <Text style={[styles.statValue, { color: isDark ? '#f8fafc' : '#0f172a' }]}>
-                  {item.value}
+                
+                <Text style={[styles.percentage, { color: color }]}>
+                  {percentage.toFixed(1)}%
                 </Text>
               </View>
-              
-              <Text style={[styles.statLabel, { color: isDark ? '#94a3b8' : '#64748b' }]}>
-                {formatStatusLabel(item.key)}
-              </Text>
-              
-              <View style={[styles.progressBar, { backgroundColor: isDark ? '#475569' : '#e2e8f0' }]}>
-                <View
-                  style={[
-                    styles.progressFill,
-                    { backgroundColor: color, width: `${percentage}%` }
-                  ]}
-                />
-              </View>
-              
-              <Text style={[styles.percentage, { color: color }]}>
-                {percentage.toFixed(1)}%
-              </Text>
-            </View>
-          );
-        })}
+            );
+          })}
+        </View>
       </View>
     );
   };
@@ -262,17 +280,13 @@ export const StatsCard: React.FC<StatsCardProps> = ({ isDark }) => {
 
 const styles = StyleSheet.create({
   container: {
-    borderRadius: 16,
+    borderRadius: 20,
     margin: 16,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 5,
+    paddingBottom: 8,
+    overflow: 'hidden',
   },
   header: {
     padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(148, 163, 184, 0.2)',
   },
   titleRow: {
     flexDirection: 'row',
@@ -291,12 +305,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   title: {
-    fontSize: 20,
-    fontWeight: '700',
+    fontSize: 22,
+    fontWeight: '800',
+    letterSpacing: -0.5,
   },
   subtitle: {
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: '600',
     marginTop: 2,
   },
   filterScroll: {
@@ -304,98 +319,120 @@ const styles = StyleSheet.create({
   },
   filterContainer: {
     gap: 8,
+    paddingRight: 20,
   },
   filterChip: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
     borderRadius: 20,
-    marginBottom: 4,
   },
   activeFilterChip: {
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
   },
   filterText: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 13,
+    fontWeight: '700',
   },
   content: {
-    maxHeight: 300,
-    minHeight: 150,
+    paddingBottom: 20,
+  },
+  statsWrapper: {
+    paddingHorizontal: 16,
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingBottom: 16,
+    marginBottom: 16,
+    borderBottomWidth: 1,
+  },
+  summaryItem: {
+    flex: 1,
+  },
+  summaryLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  summaryValue: {
+    fontSize: 24,
+    fontWeight: '800',
+  },
+  rateWrapper: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
   },
   statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    padding: 16,
     gap: 12,
   },
   statCard: {
-    width: '47%',
+    width: '47.8%',
     padding: 16,
-    borderRadius: 12,
+    borderRadius: 16,
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.05,
     shadowRadius: 4,
-    elevation: 3,
+    elevation: 2,
   },
   statHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 12,
   },
   statIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
   },
   statValue: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: '700',
   },
   statLabel: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 11,
+    fontWeight: '700',
     marginBottom: 8,
   },
   progressBar: {
-    height: 4,
-    borderRadius: 2,
+    height: 6,
+    borderRadius: 3,
     marginBottom: 4,
+    overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
-    borderRadius: 2,
+    borderRadius: 3,
   },
   percentage: {
-    fontSize: 11,
-    fontWeight: '600',
+    fontSize: 10,
+    fontWeight: '800',
     textAlign: 'right',
   },
-  loadingContainer: {
-    padding: 40,
+  centerContent: {
+    padding: 60,
     alignItems: 'center',
-    borderRadius: 16,
-    margin: 16,
+    justifyContent: 'center',
   },
   loadingText: {
     marginTop: 16,
     fontSize: 16,
-    fontWeight: '500',
-  },
-  emptyContainer: {
-    padding: 40,
-    alignItems: 'center',
-    borderRadius: 16,
-    margin: 16,
+    fontWeight: '600',
   },
   emptyText: {
     marginTop: 16,
-    fontSize: 16,
+    fontSize: 14,
+    fontWeight: '500',
     textAlign: 'center',
+    lineHeight: 20,
   },
 });

@@ -1,16 +1,17 @@
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
+import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
-    ActivityIndicator,
-    FlatList,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    useColorScheme,
-    View,
+  ActivityIndicator,
+  FlatList,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  useColorScheme,
+  View,
 } from "react-native";
 import { Toast } from "../components/Toast";
 import { UserDetailsModal } from "../components/UserDetailsModal";
@@ -18,9 +19,9 @@ import { FilterState, UserFilter } from "../components/UserFilter";
 import { useAuth } from "../contexts/AuthContext";
 import { AssignmentStats } from "../endpoints/stats";
 import {
-    getEscalatedUsers,
-    GetUnregisterdUsers,
-    sendWhatsAppMessage
+  getEscalatedUsers,
+  GetUnregisterdUsers,
+  sendWhatsAppMessage
 } from "../endpoints/users";
 import { useToast } from "../hooks/useToast";
 
@@ -72,6 +73,7 @@ export default function SuperAdminScreen() {
   const isDark = colorScheme === "dark";
   const { toast, showSuccess, showError, hideToast } = useToast();
   const { logout } = useAuth();
+  const router = useRouter();
 
   useEffect(() => {
     loadUserInfo();
@@ -83,16 +85,25 @@ export default function SuperAdminScreen() {
       if (userInfo) {
         const parsedUser = JSON.parse(userInfo);
         const username = parsedUser.username || parsedUser.email;
+        const role = parsedUser.role;
+        
+        if (role !== 'SUPER_ADMIN') {
+          console.log("DEBUG: Not a super admin, redirecting to login");
+          router.replace('/login');
+          return;
+        }
+
         setLoggedInUser(username);
       } else {
-        setLoggedInUser("ADMIN");
+        console.log("DEBUG: No userInfo found, redirecting to login");
+        router.replace('/login');
+        return;
       }
       // Automaticaly fetch users after loading info
       fetchUsers();
     } catch (error) {
       console.error("Error loading user info:", error);
-      setLoggedInUser("ADMIN");
-      fetchUsers();
+      router.replace('/login');
     }
   };;
 
