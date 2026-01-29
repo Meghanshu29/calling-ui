@@ -418,7 +418,7 @@ export const UserCard: React.FC<UserCardProps> = ({
               >
                 Click 'User Details' to view matches
               </Text>
-            ) : (
+            ) : isSuperAdmin ? (
               <>
                 <TextInput
                   style={[
@@ -454,6 +454,15 @@ export const UserCard: React.FC<UserCardProps> = ({
                   </Text>
                 </TouchableOpacity>
               </>
+            ) : (
+              <Text
+                style={[
+                  styles.instructionText,
+                  { color: isDark ? "#e2e8f0" : "#374151" },
+                ]}
+              >
+                {user.instruction || "No specific instructions provided for this user."}
+              </Text>
             )}
           </View>
 

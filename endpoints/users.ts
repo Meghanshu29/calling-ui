@@ -46,7 +46,7 @@ export const updateFeedback = async (
   feedback?: string,
   priority?: string
 ) => {
-  return await ApiRequest("PUT", "admin/update-feedback", {
+  return await ApiRequest("PATCH", "admin/update-feedback", {
     user_id,
     status,
     feedback,

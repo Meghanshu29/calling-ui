@@ -263,49 +263,7 @@ export default function HomeScreen() {
     }
   }, [loggedInUser, activeTab, userRole]);
 
-  const fetchNextUser = async () => {
-    if (!activeTab) return;
-    const messageData = {
-      phone_number: String(currentUser?.mobile_no),
-      name: currentUser?.name,
-      is_interested: selectedStatusState == "Interested" ? 1 : 0,
-    };
-    setLoadingNext(true);
-    try {
-      if (
-        selectedStatusState == "Interested" ||
-        selectedStatusState == "Not Interested"
-      ) {
-        const response = await sendWhatsAppMessage(messageData);
-        console.log("Whatsapp Response=>", response);
-      }
-      const isSuperAdmin = userRole?.toUpperCase() === "SUPER_ADMIN";
-      const response = await getUnregisteredUsers(
-        activeTab,
-        "pending",
-        isSuperAdmin ? undefined : loggedInUser,
-        undefined,
-        undefined,
-        isSuperAdmin ? 50 : 1,
-        !isSuperAdmin,
-        loggedInUser
-      );
-      if (response?.users?.length) {
-        setUsers(response.users);
-        if (userRole?.toUpperCase() !== "SUPER_ADMIN") {
-          setCurrentUser(response.users[0]);
-        } else {
-          setCurrentUser(null);
-        }
-      } else {
-        setUsers([]);
-        setCurrentUser(null);
-      }
-      setSelectedStatus("");
-    } finally {
-      setLoadingNext(false);
-    }
-  };
+
   const handleSubmitFeedback = () => {
     console.log("🔍 handleSubmitFeedback called with selectedStatus:", selectedStatusState);
     
@@ -617,8 +575,8 @@ export default function HomeScreen() {
               <ActivityIndicator size="small" color={getTabColor(activeTab)} />
             ) : (
               <>
-                <Ionicons name="download" size={16} color={getTabColor(activeTab)} />
-                <Text style={[styles.actionText, { color: getTabColor(activeTab) }]}>Fetch</Text>
+                <Ionicons name="checkmark-circle" size={16} color={getTabColor(activeTab)} />
+                <Text style={[styles.actionText, { color: getTabColor(activeTab) }]}>Apply Filter</Text>
               </>
             )}
           </TouchableOpacity>
@@ -769,7 +727,6 @@ export default function HomeScreen() {
             user={currentUser}
             onSubmit={handleSubmitFeedback}
             onSkip={handleSkipFeedback}
-            onNext={fetchNextUser}
             isDark={isDark}
             selectedStatus={selectedStatusState}
             onStatusChange={setSelectedStatus}

@@ -413,8 +413,8 @@ export default function SuperAdminScreen() {
               <ActivityIndicator size="small" color="white" />
             ) : (
               <>
-                <Ionicons name="download" size={16} color="white" />
-                <Text style={styles.fetchButtonText}>Load Users</Text>
+                <Ionicons name="checkmark-circle" size={16} color="white" />
+                <Text style={styles.fetchButtonText}>Apply Filter</Text>
               </>
             )}
           </TouchableOpacity>
@@ -439,7 +439,7 @@ export default function SuperAdminScreen() {
             <View style={styles.emptyContainer}>
               <Ionicons name="people" size={48} color={isDark ? "#64748b" : "#94a3b8"} />
               <Text style={[styles.emptyText, { color: isDark ? "#94a3b8" : "#64748b" }]}>
-                No users found. Click "Load Users" to fetch data.
+                No users found. Click "Apply Filter" to fetch data.
               </Text>
             </View>
           }

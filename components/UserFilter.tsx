@@ -142,26 +142,25 @@ export const UserFilter: React.FC<UserFilterProps> = ({
               </TouchableOpacity>
             </View>
 
-            {/* City Filter */}
-            <View style={styles.filterSection}>
+            {/* City Filter - DISABLED for now */}
+            <View style={[styles.filterSection, { opacity: 0.5 }]}>
               <Text style={[styles.label, { color: isDark ? '#94a3b8' : '#64748b' }]}>
-                City
+                City (Disabled)
               </Text>
-              <TouchableOpacity
+              <View
                 style={[
                   styles.filterButton,
                   {
-                    backgroundColor: isDark ? '#334155' : '#f8fafc',
-                    borderColor: isDark ? '#475569' : '#e2e8f0',
+                    backgroundColor: isDark ? '#1e293b' : '#f1f5f9',
+                    borderColor: isDark ? '#334155' : '#e2e8f0',
                   },
                 ]}
-                onPress={() => setShowCityList(true)}
               >
-                <Text style={[styles.filterText, { color: isDark ? '#f8fafc' : '#0f172a' }]}>
+                <Text style={[styles.filterText, { color: isDark ? '#64748b' : '#94a3b8' }]}>
                   {filters.city || 'All Cities'}
                 </Text>
-                <Ionicons name="chevron-down" size={20} color={isDark ? '#94a3b8' : '#64748b'} />
-              </TouchableOpacity>
+                <Ionicons name="lock-closed" size={18} color={isDark ? '#475569' : '#cbd5e1'} />
+              </View>
             </View>
           </View>
 
