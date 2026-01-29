@@ -50,12 +50,10 @@ export default function HomeScreen() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [users, setUsers] = useState<User[]>([]);
   const [userRole, setUserRole] = useState<UserRole | null>(null);
+  const [selectedStatusState, setSelectedStatusState] = useState("");
   const setSelectedStatus = (status: string) => {
-    console.log("🔄 setSelectedStatus called with:", status);
-    console.trace("📍 Stack trace for setSelectedStatus");
     setSelectedStatusState(status);
   };
-  const [selectedStatusState, setSelectedStatusState] = useState("");
   const [feedback, setFeedback] = useState("");
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [submittingFeedback, setSubmittingFeedback] = useState(false);
@@ -724,6 +722,7 @@ export default function HomeScreen() {
       ) : (
         !loading && currentUser && (
           <UserCard
+            key={currentUser.id}
             user={currentUser}
             onSubmit={handleSubmitFeedback}
             onSkip={handleSkipFeedback}
