@@ -1,19 +1,18 @@
-import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  useColorScheme,
-  ScrollView,
-  ActivityIndicator,
-  Alert,
-} from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { sendWhatsAppMessage } from '../../endpoints/users';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useState } from 'react';
+import {
+    ActivityIndicator,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    useColorScheme,
+    View
+} from 'react-native';
 import { Toast } from '../../components/Toast';
+import { sendWhatsAppMessage } from '../../endpoints/users';
 import { useToast } from '../../hooks/useToast';
 
 export default function WhatsAppScreen() {
@@ -74,12 +73,14 @@ export default function WhatsAppScreen() {
           >
             <Ionicons name="logo-whatsapp" size={28} color="white" />
           </LinearGradient>
-          <Text style={[styles.title, { color: isDark ? '#f8fafc' : '#0f172a' }]}>
-            Send WhatsApp Message
-          </Text>
-          <Text style={[styles.subtitle, { color: isDark ? '#94a3b8' : '#64748b' }]}>
-            Send custom messages to users
-          </Text>
+          <View style={styles.headerTextContainer}>
+            <Text style={[styles.title, { color: isDark ? '#f8fafc' : '#0f172a' }]}>
+              Send WhatsApp Message
+            </Text>
+            <Text style={[styles.subtitle, { color: isDark ? '#94a3b8' : '#64748b' }]}>
+              Send custom messages to users
+            </Text>
+          </View>
         </View>
 
         <View style={styles.content}>
@@ -134,7 +135,7 @@ export default function WhatsAppScreen() {
                   onPress={() => setIsInterested(1)}
                 >
                   <Ionicons 
-                    name="heart" 
+                    name="checkmark-circle" 
                     size={20} 
                     color={isInterested === 1 ? 'white' : '#22c55e'} 
                   />
@@ -155,7 +156,7 @@ export default function WhatsAppScreen() {
                   onPress={() => setIsInterested(0)}
                 >
                   <Ionicons 
-                    name="heart-dislike" 
+                    name="close-circle" 
                     size={20} 
                     color={isInterested === 0 ? 'white' : '#ef4444'} 
                   />
@@ -207,8 +208,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
+    flexDirection: 'row',
     alignItems: 'center',
-    paddingTop: 60,
+    justifyContent: 'center',
+    paddingTop: 120,
     paddingBottom: 32,
     paddingHorizontal: 20,
   },
@@ -218,20 +221,23 @@ const styles = StyleSheet.create({
     borderRadius: 32,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 16,
+    marginRight: 16,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 8,
   },
+  headerTextContainer: {
+    flex: 1,
+  },
   title: {
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: '800',
-    letterSpacing: -1,
+    letterSpacing: -0.5,
     marginBottom: 4,
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '500',
   },
   content: {

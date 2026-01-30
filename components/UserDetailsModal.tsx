@@ -27,9 +27,18 @@ interface UserDetailsModalProps {
   isDark: boolean;
   onUserUpdate?: () => void;
   isSuperAdmin?: boolean;
+  currentUser?: string | null;
 }
 
-export const UserDetailsModal: React.FC<UserDetailsModalProps> = ({ visible, onClose, user, isDark, onUserUpdate, isSuperAdmin = false }) => {
+export const UserDetailsModal: React.FC<UserDetailsModalProps> = ({ 
+  visible, 
+  onClose, 
+  user, 
+  isDark, 
+  onUserUpdate, 
+  isSuperAdmin = false,
+  currentUser = null
+}) => {
   const [selectedStatus, setSelectedStatus] = useState('');
   const [feedback, setFeedback] = useState('');
   const [updating, setUpdating] = useState(false);
@@ -68,7 +77,20 @@ export const UserDetailsModal: React.FC<UserDetailsModalProps> = ({ visible, onC
     
     setUpdating(true);
     try {
-      await updateFeedback(user.id, selectedStatus, feedback);
+      // 1. Update feedback and status
+      await updateFeedback(user.id, selectedStatus, feedback, undefined, currentUser || undefined);
+      
+      // 2. Update assignment and instruction using the specific endpoint requested
+      // We pass the current instruction (either the one already there or the edited one)
+      // and the current logged in user as the assigned_to
+      if (currentUser) {
+        await updateUserInstructionAndAssignment(
+          user.id,
+          editableInstruction || user.instruction || '',
+          currentUser
+        );
+      }
+
       alert('Status updated successfully!');
       setSelectedStatus('');
       setFeedback('');

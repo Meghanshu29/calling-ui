@@ -1,26 +1,24 @@
-import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  StatusBar,
-  useColorScheme,
-  ScrollView,
-} from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { GradientButton } from '../components/GradientButton';
-import { login, requestOtp } from '../endpoints/auth';
-import { Toast } from '../components/Toast';
-import { useToast } from '../hooks/useToast';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
+import {
+    KeyboardAvoidingView,
+    Platform,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    useColorScheme,
+    View
+} from 'react-native';
 import { AuthCheck } from '../components/AuthCheck';
+import { GradientButton } from '../components/GradientButton';
+import { Toast } from '../components/Toast';
+import { login, requestOtp } from '../endpoints/auth';
+import { useToast } from '../hooks/useToast';
 
 const lightTheme = {
   background: '#f8fafc',
@@ -142,13 +140,7 @@ export default function LoginScreen() {
       }
       
       showSuccess('Login successful!');
-      
-      // Check user role and redirect accordingly
-      if (response.role === 'SUPER_ADMIN') {
-        setTimeout(() => router.replace('/super-admin'), 1000);
-      } else {
-        setTimeout(() => router.replace('/(tabs)'), 1000);
-      }
+      setTimeout(() => router.replace('/(tabs)'), 1000);
     } catch (error: any) {
       showError(error.message || 'Login failed');
     } finally {

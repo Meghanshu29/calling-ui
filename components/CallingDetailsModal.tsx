@@ -51,9 +51,21 @@ export const CallingDetailsModal: React.FC<CallingDetailsModalProps> = ({
   const fetchDetails = async () => {
     setLoading(true);
     try {
+      console.log('Fetching details for:', { agentName, timePeriod, status });
       const response = await getCallingDetails(agentName, timePeriod, status);
+      console.log('API Response:', response);
       if (response && response.success && response.data) {
-        setUsers(response.data.users || []);
+        let users = response.data.users || [];
+        
+        // Filter by status if provided
+        if (status) {
+          users = users.filter((user: User) => 
+            user.status?.toLowerCase() === status.toLowerCase()
+          );
+          console.log(`Filtered to ${users.length} users with status: ${status}`);
+        }
+        
+        setUsers(users);
       }
     } catch (error) {
       console.error('Error fetching calling details:', error);

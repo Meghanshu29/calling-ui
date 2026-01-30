@@ -3,16 +3,17 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
 import { useEffect, useState } from "react";
 import {
-    ActivityIndicator,
-    FlatList,
-    Linking,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    useColorScheme,
-    View,
+  ActivityIndicator,
+  FlatList,
+  Linking,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  useColorScheme,
+  View
 } from "react-native";
 import { Toast } from "../../components/Toast";
 import { UserDetailsModal } from "../../components/UserDetailsModal";
@@ -82,6 +83,7 @@ export default function OthersScreen() {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [showUserDetails, setShowUserDetails] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [loggedInUser, setLoggedInUser] = useState<string | null>(null);
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
   const { toast, showError, hideToast } = useToast();
@@ -117,10 +119,13 @@ export default function OthersScreen() {
         if (userInfo) {
           const parsedUser = JSON.parse(userInfo);
           setUserRole(parsedUser.role);
+          setLoggedInUser(parsedUser.username || parsedUser.email);
           
-          // Only fetch agents & location if user is super admin
+          // Fetch agents for all users (for filtering)
+          fetchAgents();
+          
+          // Only fetch location data if user is super admin
           if (parsedUser.role === 'SUPER_ADMIN') {
-            fetchAgents();
             fetchLocationData();
           }
         }
@@ -554,53 +559,70 @@ export default function OthersScreen() {
           ) : null}
         </View>
 
-        {/* Simple "Dropdown" for Agent Filter - Only for Super Admin */}
-        {userRole === 'SUPER_ADMIN' && (
-          <View style={{ marginTop: 12, zIndex: 100 }}>
-            <TouchableOpacity
-              style={[
-                styles.dropdownButton,
-                { backgroundColor: isDark ? "#334155" : "#f8fafc", borderColor: isDark ? "#475569" : "#e2e8f0" }
-              ]}
-              onPress={() => setShowAgentDropdown(!showAgentDropdown)}
-            >
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <Ionicons name="person" size={16} color={isDark ? "#94a3b8" : "#64748b"} />
-                <Text style={[styles.dropdownButtonText, { color: isDark ? "#f8fafc" : "#0f172a" }]}>
-                  {activeAgent ? `Assigned to: ${activeAgent}` : "Filter by Agent: All"}
-                </Text>
-              </View>
-              <Ionicons name={showAgentDropdown ? "chevron-up" : "chevron-down"} size={16} color={isDark ? "#94a3b8" : "#64748b"} />
-            </TouchableOpacity>
+        {/* Agent Filter Dropdown - For All Users */}
+        <View style={{ marginTop: 12, zIndex: 100 }}>
+          <TouchableOpacity
+            style={[
+              styles.dropdownButton,
+              { backgroundColor: isDark ? "#334155" : "#f8fafc", borderColor: isDark ? "#475569" : "#e2e8f0" }
+            ]}
+            onPress={() => setShowAgentDropdown(!showAgentDropdown)}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Ionicons name="person" size={16} color={isDark ? "#94a3b8" : "#64748b"} />
+              <Text style={[styles.dropdownButtonText, { color: isDark ? "#f8fafc" : "#0f172a" }]}>
+                {activeAgent ? `Assigned to: ${activeAgent}` : "Filter by Agent: All"}
+              </Text>
+            </View>
+            <Ionicons name={showAgentDropdown ? "chevron-up" : "chevron-down"} size={16} color={isDark ? "#94a3b8" : "#64748b"} />
+          </TouchableOpacity>
 
-            {showAgentDropdown && (
-              <View style={[styles.dropdownList, { backgroundColor: isDark ? "#1e293b" : "#ffffff", borderColor: isDark ? "#475569" : "#e2e8f0" }]}>
-                <TouchableOpacity
-                  style={[styles.dropdownItem, !activeAgent && { backgroundColor: isDark ? "#334155" : "#f1f5f9" }]}
-                  onPress={() => {
-                    setActiveAgent(null);
-                    setShowAgentDropdown(false);
-                  }}
-                >
-                  <Text style={{ color: isDark ? "#f8fafc" : "#0f172a", fontWeight: !activeAgent ? '700' : '400' }}>All Agents</Text>
-                </TouchableOpacity>
-                
-                {agents.map((agent) => (
+          <Modal
+            visible={showAgentDropdown}
+            transparent
+            animationType="fade"
+            onRequestClose={() => setShowAgentDropdown(false)}
+          >
+            <TouchableOpacity 
+              style={styles.modalOverlay}
+              activeOpacity={1}
+              onPress={() => setShowAgentDropdown(false)}
+            >
+              <View style={[styles.modalContent, { backgroundColor: isDark ? "#1e293b" : "#ffffff" }]}>
+                <View style={styles.modalHeader}>
+                  <Text style={[styles.modalTitle, { color: isDark ? "#f8fafc" : "#0f172a" }]}>Select Agent</Text>
+                  <TouchableOpacity onPress={() => setShowAgentDropdown(false)}>
+                    <Ionicons name="close" size={24} color={isDark ? "#94a3b8" : "#64748b"} />
+                  </TouchableOpacity>
+                </View>
+                <ScrollView style={{ maxHeight: 400 }}>
                   <TouchableOpacity
-                    key={agent}
-                    style={[styles.dropdownItem, activeAgent === agent && { backgroundColor: isDark ? "#334155" : "#f1f5f9" }]}
+                    style={[styles.modalItem, !activeAgent && { backgroundColor: isDark ? "#334155" : "#f1f5f9" }]}
                     onPress={() => {
-                      setActiveAgent(agent);
+                      setActiveAgent(null);
                       setShowAgentDropdown(false);
                     }}
                   >
-                    <Text style={{ color: isDark ? "#f8fafc" : "#0f172a", fontWeight: activeAgent === agent ? '700' : '400' }}>{agent}</Text>
+                    <Text style={{ color: isDark ? "#f8fafc" : "#0f172a", fontWeight: !activeAgent ? '700' : '400' }}>All Agents</Text>
                   </TouchableOpacity>
-                ))}
+                  
+                  {agents.map((agent) => (
+                    <TouchableOpacity
+                      key={agent}
+                      style={[styles.modalItem, activeAgent === agent && { backgroundColor: isDark ? "#334155" : "#f1f5f9" }]}
+                      onPress={() => {
+                        setActiveAgent(agent);
+                        setShowAgentDropdown(false);
+                      }}
+                    >
+                      <Text style={{ color: isDark ? "#f8fafc" : "#0f172a", fontWeight: activeAgent === agent ? '700' : '400' }}>{agent}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
               </View>
-            )}
-          </View>
-        )}
+            </TouchableOpacity>
+          </Modal>
+        </View>
         
         {/* State and City Filters - Only for Super Admin */}
         {userRole === 'SUPER_ADMIN' && (
@@ -733,6 +755,7 @@ export default function OthersScreen() {
             style={styles.userList}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.listContainer}
+            scrollEnabled={!showAgentDropdown && !showStateDropdown && !showCityDropdown}
           />
         ) : (
           <View style={styles.emptyContainer}>
@@ -766,6 +789,7 @@ export default function OthersScreen() {
         isDark={isDark}
         onUserUpdate={handleUserUpdate}
         isSuperAdmin={userRole === 'SUPER_ADMIN'}
+        currentUser={loggedInUser}
       />
     </LinearGradient>
   );
@@ -847,6 +871,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     padding: 4,
+    maxHeight: 250,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
@@ -1031,5 +1056,39 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     fontWeight: '500',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    width: '90%',
+    maxWidth: 500,
+    borderRadius: 16,
+    padding: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 16,
+    elevation: 10,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  modalItem: {
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    marginBottom: 4,
   },
 });

@@ -35,8 +35,8 @@ export default function TabLayout() {
           backgroundColor: isDark ? '#1e293b' : '#ffffff',
           borderTopWidth: 1,
           borderTopColor: isDark ? '#334155' : '#e2e8f0',
-          height: 60,
-          paddingBottom: 8,
+          height: 70,
+          paddingBottom: 16,
           paddingTop: 8,
         },
         tabBarLabelStyle: {

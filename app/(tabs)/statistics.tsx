@@ -8,6 +8,7 @@ import {
     ScrollView,
     StyleSheet,
     Text,
+    TextInput,
     TouchableOpacity,
     useColorScheme,
     View,
@@ -36,6 +37,7 @@ export default function StatisticsScreen() {
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
   const [selectedStatus, setSelectedStatus] = useState<string | undefined>(undefined);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [searchQuery, setSearchQuery] = useState<string>('');
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
   const { toast, showError, hideToast } = useToast();
@@ -118,6 +120,13 @@ export default function StatisticsScreen() {
     setShowDetailsModal(true);
   };
 
+  const getFilteredStats = () => {
+    if (!searchQuery.trim()) return statsData;
+    return statsData.filter(stat => 
+      stat.assigned_to.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  };
+
   const renderStatsCard = ({ item }: { item: AssignmentStats }) => {
     const totalCalls = item.total;
     const completionRate = totalCalls > 0 ? (((totalCalls - item.pending) / totalCalls) * 100).toFixed(1) : "0";
@@ -165,6 +174,27 @@ export default function StatisticsScreen() {
             </TouchableOpacity>
             <TouchableOpacity 
               style={styles.statItem}
+              onPress={() => handleStatBlockPress(item.assigned_to, 'Declined')}
+            >
+              <Text style={[styles.statValue, { color: "#f43f5e" }]}>{item.declined}</Text>
+              <Text style={[styles.statLabel, { color: isDark ? "#94a3b8" : "#64748b" }]}>Declined</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={styles.statItem}
+              onPress={() => handleStatBlockPress(item.assigned_to, 'Busy Call Later')}
+            >
+              <Text style={[styles.statValue, { color: "#f59e0b" }]}>{item.busy_call_later}</Text>
+              <Text style={[styles.statLabel, { color: isDark ? "#94a3b8" : "#64748b" }]}>Busy/Call Later</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={styles.statItem}
+              onPress={() => handleStatBlockPress(item.assigned_to, 'Married/Engaged')}
+            >
+              <Text style={[styles.statValue, { color: "#ec4899" }]}>{item.married_engaged}</Text>
+              <Text style={[styles.statLabel, { color: isDark ? "#94a3b8" : "#64748b" }]}>Married/Engaged</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={styles.statItem}
               onPress={() => handleStatBlockPress(item.assigned_to, 'Escalate to Sonia')}
             >
               <Text style={[styles.statValue, { color: "#8b5cf6" }]}>{item.escalate_to_sonia}</Text>
@@ -172,9 +202,30 @@ export default function StatisticsScreen() {
             </TouchableOpacity>
             <TouchableOpacity 
               style={styles.statItem}
+              onPress={() => handleStatBlockPress(item.assigned_to, 'Complete Soon')}
+            >
+              <Text style={[styles.statValue, { color: "#10b981" }]}>{item.complete_soon}</Text>
+              <Text style={[styles.statLabel, { color: isDark ? "#94a3b8" : "#64748b" }]}>Complete Soon</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={styles.statItem}
+              onPress={() => handleStatBlockPress(item.assigned_to, 'Need Help Completing')}
+            >
+              <Text style={[styles.statValue, { color: "#3b82f6" }]}>{item.need_help_completing}</Text>
+              <Text style={[styles.statLabel, { color: isDark ? "#94a3b8" : "#64748b" }]}>Need Help</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={styles.statItem}
+              onPress={() => handleStatBlockPress(item.assigned_to, 'Not Serious')}
+            >
+              <Text style={[styles.statValue, { color: "#fb923c" }]}>{item.not_serious}</Text>
+              <Text style={[styles.statLabel, { color: isDark ? "#94a3b8" : "#64748b" }]}>Not Serious</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={styles.statItem}
               onPress={() => handleStatBlockPress(item.assigned_to, 'pending')}
             >
-              <Text style={[styles.statValue, { color: "#f59e0b" }]}>{item.pending}</Text>
+              <Text style={[styles.statValue, { color: "#a855f7" }]}>{item.pending}</Text>
               <Text style={[styles.statLabel, { color: isDark ? "#94a3b8" : "#64748b" }]}>Pending</Text>
             </TouchableOpacity>
           </View>
@@ -249,6 +300,26 @@ export default function StatisticsScreen() {
             ))}
           </ScrollView>
         </View>
+
+        {/* Search Bar */}
+        <View style={[styles.searchContainer, { 
+          backgroundColor: isDark ? "#1e293b" : "#ffffff",
+          borderColor: isDark ? "#475569" : "#e2e8f0"
+        }]}>
+          <Ionicons name="search" size={20} color={isDark ? "#94a3b8" : "#64748b"} />
+          <TextInput
+            style={[styles.searchInput, { color: isDark ? "#f8fafc" : "#0f172a" }]}
+            placeholder="Search customer support by name..."
+            placeholderTextColor={isDark ? "#64748b" : "#94a3b8"}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+          {searchQuery ? (
+            <TouchableOpacity onPress={() => setSearchQuery('')}>
+              <Ionicons name="close-circle" size={20} color={isDark ? "#94a3b8" : "#64748b"} />
+            </TouchableOpacity>
+          ) : null}
+        </View>
       </View>
 
       {loading ? (
@@ -257,7 +328,7 @@ export default function StatisticsScreen() {
         </View>
       ) : (
         <FlatList
-          data={statsData}
+          data={getFilteredStats()}
           renderItem={renderStatsCard}
           keyExtractor={(item) => item.assigned_to}
           contentContainerStyle={styles.listContainer}
@@ -398,10 +469,11 @@ const styles = StyleSheet.create({
   },
   statItem: {
     flex: 1,
-    minWidth: "45%",
+    minWidth: "30%",
     padding: 12,
     borderRadius: 12,
     backgroundColor: "rgba(148, 163, 184, 0.05)",
+    alignItems: "center",
   },
   statValue: {
     fontSize: 20,
@@ -436,5 +508,20 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     fontStyle: 'italic',
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginTop: 16,
+    gap: 12,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '500',
   },
 });

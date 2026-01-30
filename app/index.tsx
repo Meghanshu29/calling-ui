@@ -17,12 +17,7 @@ export default function Index() {
       const userInfo = await AsyncStorage.getItem('userInfo');
       
       if (token && userInfo) {
-        const parsedUser = JSON.parse(userInfo);
-        if (parsedUser.role === 'SUPER_ADMIN') {
-          setTarget('/super-admin');
-        } else {
-          setTarget('/(tabs)');
-        }
+        setTarget('/(tabs)');
       } else {
         setTarget('/login');
       }

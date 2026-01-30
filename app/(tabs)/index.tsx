@@ -4,26 +4,26 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
-    ActivityIndicator,
-    FlatList,
-    Modal,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    useColorScheme,
-    View,
+  ActivityIndicator,
+  FlatList,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  useColorScheme,
+  View,
 } from "react-native";
 import { Toast } from "../../components/Toast";
 import { UserCard } from "../../components/UserCard";
 import { FilterState, UserFilter } from "../../components/UserFilter";
 import { useAuth } from "../../contexts/AuthContext";
 import {
-    GetUnregisterdUsers,
-    getUnregisteredUsers,
-    sendWhatsAppMessage,
-    updateFeedback,
+  GetUnregisterdUsers,
+  getUnregisteredUsers,
+  sendWhatsAppMessage,
+  updateFeedback,
 } from "../../endpoints/users";
 import { useToast } from "../../hooks/useToast";
 
@@ -154,8 +154,8 @@ export default function HomeScreen() {
               activeTab,
               "pending",
               fetchForUser,
-              undefined,
-              undefined,
+              filters.state || undefined,
+              filters.city || undefined,
               limit,
               !isSuperAdmin,
               loggedInUser,
@@ -168,8 +168,8 @@ export default function HomeScreen() {
               activeTab,
               "pending",
               fetchForUser,
-              undefined,
-              undefined,
+              filters.state || undefined,
+              filters.city || undefined,
               limit,
               !isSuperAdmin,
               loggedInUser,
@@ -179,11 +179,11 @@ export default function HomeScreen() {
 
           case "incomplete user":
             response = await getUnregisteredUsers(
-              activeTab,
+              "incomplete_user",
               "pending",
               fetchForUser,
-              undefined,
-              undefined,
+              filters.state || undefined,
+              filters.city || undefined,
               limit,
               !isSuperAdmin,
               loggedInUser,
@@ -223,12 +223,13 @@ export default function HomeScreen() {
     console.log("DEBUG: loadMoreUsers called, offset:", offset);
     try {
       const limit = 50;
+      const apiTag = activeTab === "incomplete user" ? "incomplete_user" : activeTab;
       const response = await getUnregisteredUsers(
-        activeTab,
+        apiTag,
         "pending",
         undefined,
-        undefined,
-        undefined,
+        filters.state || undefined,
+        filters.city || undefined,
         limit,
         false,
         loggedInUser,
@@ -256,8 +257,17 @@ export default function HomeScreen() {
 
   useEffect(() => {
     if (loggedInUser && activeTab && userRole) {
-      console.log("DEBUG: useEffect triggering fetchUsersByTab for role:", userRole);
-      fetchUsersByTab(activeTab);
+      console.log("DEBUG: useEffect triggering for role:", userRole);
+      
+      // Only auto-fetch for SUPER_ADMIN
+      // Customer support must click "Get Contacts" or apply filters
+      if (userRole?.toUpperCase() === "SUPER_ADMIN") {
+        console.log("DEBUG: Auto-fetching users for SUPER_ADMIN");
+        fetchUsersByTab(activeTab);
+      } else {
+        console.log("DEBUG: Customer support - no auto-fetch, waiting for user action");
+        setLoading(false);
+      }
     }
   }, [loggedInUser, activeTab, userRole]);
 
@@ -310,6 +320,8 @@ export default function HomeScreen() {
           currentUser.id,
           selectedStatusState,
           "Auto-skipped for " + selectedStatusState,
+          undefined,
+          loggedInUser
         );
       }
       
@@ -318,12 +330,13 @@ export default function HomeScreen() {
       setLoadingNext(true);
       
       const isSuperAdmin = userRole?.toUpperCase() === "SUPER_ADMIN";
+      const apiTag = activeTab === "incomplete user" ? "incomplete_user" : activeTab;
       const response = await getUnregisteredUsers(
-        activeTab,
+        apiTag,
         "pending",
         isSuperAdmin ? undefined : loggedInUser,
-        undefined,
-        undefined,
+        filters.state || undefined,
+        filters.city || undefined,
         isSuperAdmin ? 50 : 1,
         !isSuperAdmin,
         loggedInUser
@@ -378,6 +391,7 @@ export default function HomeScreen() {
         selectedStatusState,
         feedback,
         currentUser.priority,
+        loggedInUser
       );
       console.log("✅ Feedback API called successfully");
 
@@ -411,12 +425,13 @@ export default function HomeScreen() {
       setLoadingNext(true);
       
       const isSuperAdmin = userRole?.toUpperCase() === "SUPER_ADMIN";
+      const apiTag = activeTab === "incomplete user" ? "incomplete_user" : activeTab;
       const nextResponse = await getUnregisteredUsers(
-        activeTab,
+        apiTag,
         "pending",
         isSuperAdmin ? undefined : loggedInUser,
-        undefined,
-        undefined,
+        filters.state || undefined,
+        filters.city || undefined,
         isSuperAdmin ? 50 : 1,
         !isSuperAdmin,
         loggedInUser
@@ -442,15 +457,17 @@ export default function HomeScreen() {
     }
   };
 
-  const handleFetchAllUsers = async () => {
+  const handleFetchAllUsers = async (customFilters?: FilterState) => {
     setFetchingUsers(true);
     try {
       const isSuperAdmin = userRole?.toUpperCase() === "SUPER_ADMIN";
+      const apiTag = activeTab === "incomplete user" ? "incomplete_user" : activeTab;
+      const activeFilters = customFilters || filters;
       const response = await GetUnregisterdUsers({
-        tag: activeTab,
+        tag: apiTag,
         status: "pending",
-        state: filters.state || undefined,
-        city: filters.city || undefined,
+        state: activeFilters.state || undefined,
+        city: activeFilters.city || undefined,
         assigned_to: isSuperAdmin ? undefined : loggedInUser,
         auto_assign: !isSuperAdmin,
         current_user: loggedInUser,
@@ -477,11 +494,15 @@ export default function HomeScreen() {
     }
   };
 
-  const handleApplyFilters = (newFilters: FilterState) => {
+  const handleApplyFilters = async (newFilters: FilterState) => {
     setFilters(newFilters);
     const hasFilters = newFilters.state || newFilters.city || newFilters.status;
+    
+    // Automatically fetch users with the new filters
+    await handleFetchAllUsers(newFilters);
+    
     showSuccess(
-      hasFilters ? "Filters applied" : "No filters - using default API call",
+      hasFilters ? "Filters applied successfully" : "Showing all users",
     );
   };
   console.log("DEBUG: Rendering HomeScreen", { 
@@ -562,22 +583,26 @@ export default function HomeScreen() {
             <Text style={[styles.actionText, { color: isDark ? "#f8fafc" : "#0f172a" }]}>Filter</Text>
           </TouchableOpacity>
 
-          <View style={[styles.verticalDivider, { backgroundColor: isDark ? "#334155" : "#e2e8f0" }]} />
-
-          <TouchableOpacity
-            style={styles.actionSegment}
-            onPress={handleFetchAllUsers}
-            disabled={fetchingUsers}
-          >
-            {fetchingUsers ? (
-              <ActivityIndicator size="small" color={getTabColor(activeTab)} />
-            ) : (
-              <>
-                <Ionicons name="checkmark-circle" size={16} color={getTabColor(activeTab)} />
-                <Text style={[styles.actionText, { color: getTabColor(activeTab) }]}>Apply Filter</Text>
-              </>
-            )}
-          </TouchableOpacity>
+          {userRole?.toUpperCase() !== "SUPER_ADMIN" && (
+            <>
+              <View style={[styles.verticalDivider, { backgroundColor: isDark ? "#334155" : "#e2e8f0" }]} />
+              
+              <TouchableOpacity
+                style={styles.actionSegment}
+                onPress={() => handleFetchAllUsers()}
+                disabled={fetchingUsers}
+              >
+                {fetchingUsers ? (
+                  <ActivityIndicator size="small" color={getTabColor(activeTab)} />
+                ) : (
+                  <>
+                    <Ionicons name="download" size={16} color={getTabColor(activeTab)} />
+                    <Text style={[styles.actionText, { color: getTabColor(activeTab) }]}>Get Contacts</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </>
+          )}
         </View>
       </View>
 

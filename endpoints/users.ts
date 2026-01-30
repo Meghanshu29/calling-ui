@@ -37,20 +37,30 @@ export const GetUnregisterdUsers = async (params: GetUsersParams = {}) => {
   queryParams.append("limit", limit.toString());
   queryParams.append("offset", offset.toString());
 
-  return await ApiRequest("GET", `admin/unregistered-users?${queryParams}`);
+  const fullUrl = `admin/unregistered-users?${queryParams}`;
+  
+  console.log("🚀 API Request - GetUnregisterdUsers:");
+  console.log("   📋 Parameters:", params);
+  console.log("   🔗 Full URL:", fullUrl);
+  console.log("   🏷️  State Filter:", state || "NONE");
+  console.log("   🏙️  City Filter:", city || "NONE");
+
+  return await ApiRequest("GET", fullUrl);
 };
 
 export const updateFeedback = async (
   user_id: number,
   status?: string,
   feedback?: string,
-  priority?: string
+  priority?: string,
+  assigned_to?: string
 ) => {
   return await ApiRequest("PATCH", "admin/update-feedback", {
     user_id,
     status,
     feedback,
     priority,
+    assigned_to,
   });
 };
 

@@ -21,13 +21,8 @@ export const AuthCheck: React.FC<AuthCheckProps> = ({ children }) => {
       const userInfo = await AsyncStorage.getItem('userInfo');
       
       if (token && userInfo) {
-        // Both token and user info exist, redirect to appropriate dashboard
-        const parsedUser = JSON.parse(userInfo);
-        if (parsedUser.role === 'SUPER_ADMIN') {
-          router.replace('/super-admin');
-        } else {
-          router.replace('/(tabs)');
-        }
+        // User is authenticated, redirect to tabs
+        router.replace('/(tabs)');
       } else {
         // Missing auth data, stay on current screen
         setIsChecking(false);
