@@ -522,10 +522,16 @@ export default function HomeScreen() {
       }
       style={styles.container}
     >
-      <View style={[
-        styles.dashboardCard,
-        { backgroundColor: isDark ? "#1e293b" : "#ffffff", shadowColor: isDark ? "#000" : "#cbd5e1" }
-      ]}>
+      <LinearGradient
+        colors={isDark 
+          ? ['#1e293b', '#334155'] 
+          : ['#ffffff', '#dbeafe', '#bfdbfe']
+        }
+        style={[
+          styles.dashboardCard,
+          { shadowColor: isDark ? "#000" : "#64748b" }
+        ]}
+      >
         <View style={styles.titleSection}>
           <LinearGradient
             colors={["#3b82f6", "#8b5cf6"]}
@@ -535,7 +541,7 @@ export default function HomeScreen() {
           </LinearGradient>
           <View style={{ flex: 1 }}>
             <Text
-              style={[styles.title, { color: isDark ? "#f8fafc" : "#0f172a" }]}
+              style={[styles.title, { color: isDark ? "#f8fafc" : "#0f172a", fontWeight: '800' }]}
             >
               {userRole?.toUpperCase() === "SUPER_ADMIN" ? "Super Admin Dashboard" : "Calling Dashboard"}
             </Text>
@@ -604,7 +610,7 @@ export default function HomeScreen() {
             </>
           )}
         </View>
-      </View>
+      </LinearGradient>
 
       <View style={{ marginBottom: 12 }}>
         <ScrollView
@@ -995,10 +1001,10 @@ const styles = StyleSheet.create({
     margin: 12,
     borderRadius: 20,
     padding: 16,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 5,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 16,
+    elevation: 8,
     marginBottom: 16,
   },
   tabScrollContainer: {

@@ -120,7 +120,7 @@ export const CallingDetailsModal: React.FC<CallingDetailsModalProps> = ({
           style={styles.container}
         >
           <View style={styles.header}>
-            <View>
+            <View style={{ flex: 1, marginRight: 12 }}>
               <Text style={[styles.title, { color: isDark ? '#f8fafc' : '#0f172a' }]}>
                 {status ? `${status} - ${agentName}` : `${agentName}'s Calls`}
               </Text>

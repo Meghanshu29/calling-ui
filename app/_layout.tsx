@@ -1,10 +1,11 @@
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
-  DarkTheme,
-  DefaultTheme,
-  ThemeProvider,
+    DarkTheme,
+    DefaultTheme,
+    ThemeProvider,
 } from "@react-navigation/native";
+import { LinearGradient } from "expo-linear-gradient";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import * as Updates from "expo-updates";
@@ -18,6 +19,8 @@ export const unstable_settings = {
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
+  const isDark = colorScheme === "dark";
+  
   useEffect(() => {
     const checkForUpdates = async () => {
       try {
@@ -37,19 +40,25 @@ export default function RootLayout() {
 
     checkForUpdates();
   }, []);
+  
   return (
     <AuthProvider>
-      <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
+      <ThemeProvider value={isDark ? DarkTheme : DefaultTheme}>
         <SafeAreaView style={{ flex: 1 }}>
-          <Stack>
-            <Stack.Screen name="login" options={{ headerShown: false }} />
-            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-            <Stack.Screen
-              name="modal"
-              options={{ presentation: "modal", title: "Modal" }}
-            />
-          </Stack>
-          <StatusBar style="auto" />
+          <LinearGradient
+            colors={isDark ? ['#0f172a', '#1e293b'] : ['#f0f9ff', '#e0f2fe', '#bae6fd']}
+            style={{ flex: 1 }}
+          >
+            <Stack>
+              <Stack.Screen name="login" options={{ headerShown: false }} />
+              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+              <Stack.Screen
+                name="modal"
+                options={{ presentation: "modal", title: "Modal" }}
+              />
+            </Stack>
+            <StatusBar style="auto" />
+          </LinearGradient>
         </SafeAreaView>
       </ThemeProvider>
     </AuthProvider>

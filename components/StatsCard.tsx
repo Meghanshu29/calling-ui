@@ -4,13 +4,17 @@ import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
+    FlatList,
+    Modal,
     ScrollView,
     StyleSheet,
     Text,
     TouchableOpacity,
+    useColorScheme,
     View,
 } from 'react-native';
-import { AssignmentStats, getAssignmentStats } from '../endpoints/stats';
+import { AssignmentStats, getAssignmentStats, getCallingDetails } from '../endpoints/stats';
+import { UserDetailsModal } from './UserDetailsModal';
 
 interface StatsCardProps {
   isDark: boolean;
@@ -31,6 +35,13 @@ export const StatsCard: React.FC<StatsCardProps> = ({ isDark }) => {
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<string>('');
   const [selectedPeriod, setSelectedPeriod] = useState<string>('all');
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [selectedStatus, setSelectedStatus] = useState<string>('');
+  const [statusRecords, setStatusRecords] = useState<any[]>([]);
+  const [loadingRecords, setLoadingRecords] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<any>(null);
+  const [showUserModal, setShowUserModal] = useState(false);
+  const colorScheme = useColorScheme();
 
   useEffect(() => {
     loadUserStats();
@@ -110,6 +121,65 @@ export const StatsCard: React.FC<StatsCardProps> = ({ isDark }) => {
     return status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
   };
 
+  const getStatusKey = (status: string): string => {
+    const statusMap: { [key: string]: string } = {
+      'interested': 'Interested',
+      'not_interested': 'Not Interested',
+      'escalate_to_sonia': 'Escalate to Sonia',
+      'declined': 'Declined',
+      'busy_call_later': 'Busy Call Later',
+      'married_engaged': 'Married/Engaged',
+      'complete_soon': 'Complete Soon',
+      'need_help_completing': 'Need Help completing',
+      'not_serious': 'Not Serious',
+      'pending': 'pending',
+    };
+    return statusMap[status] || status;
+  };
+
+  const handleStatusClick = async (statusKey: string) => {
+    setSelectedStatus(statusKey);
+    setShowDetailsModal(true);
+    setLoadingRecords(true);
+    
+    try {
+      const statusValue = getStatusKey(statusKey);
+      console.log('🔍 Fetching records for status:', statusKey, '→', statusValue);
+      
+      const response = await getCallingDetails(currentUser, selectedPeriod, statusValue);
+      if (response && response.success && response.data) {
+        const allUsers = response.data.users || [];
+        console.log('📦 Total users received:', allUsers.length);
+        
+        // Filter users by status (case-insensitive comparison)
+        const filteredUsers = allUsers.filter((user: any) => {
+          const userStatus = (user.status || '').toLowerCase().trim();
+          const targetStatus = statusValue.toLowerCase().trim();
+          const matches = userStatus === targetStatus;
+          
+          if (!matches) {
+            console.log(`❌ Filtering out: ${user.name} (status: "${user.status}" !== "${statusValue}")`);
+          }
+          
+          return matches;
+        });
+        
+        console.log('✅ Filtered users:', filteredUsers.length, 'matching status:', statusValue);
+        setStatusRecords(filteredUsers);
+      }
+    } catch (error) {
+      console.error('Error fetching calling details:', error);
+      setStatusRecords([]);
+    } finally {
+      setLoadingRecords(false);
+    }
+  };
+
+  const handleUserClick = (user: any) => {
+    setSelectedUser(user);
+    setShowUserModal(true);
+  };
+
   const renderContent = () => {
     if (loading) {
       return (
@@ -137,6 +207,10 @@ export const StatsCard: React.FC<StatsCardProps> = ({ isDark }) => {
       ? (((stats.total - stats.pending) / stats.total) * 100).toFixed(1)
       : '0';
 
+    const conversionRate = stats.total > 0
+      ? ((stats.interested / stats.total) * 100).toFixed(1)
+      : '0';
+
     const statusItems = [
       { key: 'interested', value: stats.interested },
       { key: 'not_interested', value: stats.not_interested },
@@ -153,17 +227,46 @@ export const StatsCard: React.FC<StatsCardProps> = ({ isDark }) => {
 
     return (
       <View style={styles.statsWrapper}>
-        <View style={[styles.summaryRow, { borderBottomColor: isDark ? '#334155' : '#f1f5f9' }]}>
-          <View style={styles.summaryItem}>
-            <Text style={[styles.summaryLabel, { color: isDark ? '#94a3b8' : '#64748b' }]}>Total Calls</Text>
-            <Text style={[styles.summaryValue, { color: isDark ? '#f8fafc' : '#0f172a' }]}>{stats.total}</Text>
-          </View>
-          <View style={styles.summaryItem}>
-            <Text style={[styles.summaryLabel, { color: isDark ? '#94a3b8' : '#64748b' }]}>Completion Rate</Text>
-            <View style={styles.rateWrapper}>
-              <Text style={[styles.summaryValue, { color: '#3b82f6' }]}>{completionRate}%</Text>
+        {/* Summary Cards */}
+        <View style={styles.summaryCardsContainer}>
+          <LinearGradient
+            colors={isDark ? ['#1e3a8a', '#3b82f6'] : ['#dbeafe', '#bfdbfe']}
+            style={styles.summaryCard}
+          >
+            <View style={[styles.summaryIconWrapper, { backgroundColor: 'rgba(255, 255, 255, 0.2)' }]}>
+              <Ionicons name="call" size={16} color="white" />
             </View>
-          </View>
+            <Text style={[styles.summaryCardLabel, { color: isDark ? '#e0e7ff' : '#1e3a8a' }]} numberOfLines={1} adjustsFontSizeToFit>Total Calls</Text>
+            <Text style={[styles.summaryCardValue, { color: isDark ? '#ffffff' : '#1e40af' }]}>{stats.total}</Text>
+          </LinearGradient>
+
+          <LinearGradient
+            colors={isDark ? ['#1e40af', '#3b82f6'] : ['#dbeafe', '#93c5fd']}
+            style={styles.summaryCard}
+          >
+            <View style={[styles.summaryIconWrapper, { backgroundColor: 'rgba(255, 255, 255, 0.2)' }]}>
+              <Ionicons name="checkmark-circle" size={16} color="white" />
+            </View>
+            <Text style={[styles.summaryCardLabel, { color: isDark ? '#e0e7ff' : '#1e3a8a' }]} numberOfLines={1} adjustsFontSizeToFit>Completion</Text>
+            <Text style={[styles.summaryCardValue, { color: isDark ? '#ffffff' : '#1e40af' }]}>{completionRate}%</Text>
+          </LinearGradient>
+
+          <LinearGradient
+            colors={isDark ? ['#065f46', '#10b981'] : ['#d1fae5', '#a7f3d0']}
+            style={styles.summaryCard}
+          >
+            <View style={[styles.summaryIconWrapper, { backgroundColor: 'rgba(255, 255, 255, 0.2)' }]}>
+              <Ionicons name="trending-up" size={16} color="white" />
+            </View>
+            <Text style={[styles.summaryCardLabel, { color: isDark ? '#d1fae5' : '#065f46' }]} numberOfLines={1} adjustsFontSizeToFit>Conversion</Text>
+            <Text style={[styles.summaryCardValue, { color: isDark ? '#ffffff' : '#047857' }]}>{conversionRate}%</Text>
+          </LinearGradient>
+        </View>
+
+        {/* Status Breakdown Title */}
+        <View style={styles.sectionHeader}>
+          <Text style={[styles.sectionTitle, { color: isDark ? '#f8fafc' : '#0f172a' }]}>Status Breakdown</Text>
+          <View style={[styles.divider, { backgroundColor: isDark ? '#334155' : '#e2e8f0' }]} />
         </View>
 
         <View style={styles.statsGrid}>
@@ -172,31 +275,45 @@ export const StatsCard: React.FC<StatsCardProps> = ({ isDark }) => {
             const color = getStatusColor(item.key);
             
             return (
-              <View
+              <TouchableOpacity
                 key={item.key}
                 style={[
                   styles.statCard,
-                  { backgroundColor: isDark ? '#1e293b' : '#f8fafc' }
+                  { 
+                    backgroundColor: isDark ? '#1e293b' : '#ffffff',
+                    borderLeftWidth: 3,
+                    borderLeftColor: color,
+                  }
                 ]}
+                onPress={() => handleStatusClick(item.key)}
+                activeOpacity={0.7}
               >
-                <View style={styles.statHeader}>
-                  <View style={[styles.statIcon, { backgroundColor: color + '20' }]}>
-                    <Ionicons
-                      name={getStatusIcon(item.key) as any}
-                      size={18}
-                      color={color}
-                    />
+                <View style={styles.statContent}>
+                  <View style={styles.statLeft}>
+                    <View style={[styles.statIcon, { backgroundColor: color + '15' }]}>
+                      <Ionicons
+                        name={getStatusIcon(item.key) as any}
+                        size={16}
+                        color={color}
+                      />
+                    </View>
+                    <View style={styles.statTextContainer}>
+                      <Text style={[styles.statLabel, { color: isDark ? '#94a3b8' : '#64748b' }]} numberOfLines={1}>
+                        {formatStatusLabel(item.key)}
+                      </Text>
+                      <View style={styles.statMetrics}>
+                        <Text style={[styles.statValue, { color: isDark ? '#f8fafc' : '#0f172a' }]}>
+                          {item.value}
+                        </Text>
+                        <Text style={[styles.percentage, { color: color }]}>
+                          {percentage.toFixed(1)}%
+                        </Text>
+                      </View>
+                    </View>
                   </View>
-                  <Text style={[styles.statValue, { color: isDark ? '#f8fafc' : '#0f172a' }]}>
-                    {item.value}
-                  </Text>
                 </View>
                 
-                <Text style={[styles.statLabel, { color: isDark ? '#94a3b8' : '#64748b' }]} numberOfLines={1}>
-                  {formatStatusLabel(item.key)}
-                </Text>
-                
-                <View style={[styles.progressBar, { backgroundColor: isDark ? '#334155' : '#e2e8f0' }]}>
+                <View style={[styles.progressBar, { backgroundColor: isDark ? '#334155' : '#f1f5f9' }]}>
                   <View
                     style={[
                       styles.progressFill,
@@ -204,11 +321,7 @@ export const StatsCard: React.FC<StatsCardProps> = ({ isDark }) => {
                     ]}
                   />
                 </View>
-                
-                <Text style={[styles.percentage, { color: color }]}>
-                  {percentage.toFixed(1)}%
-                </Text>
-              </View>
+              </TouchableOpacity>
             );
           })}
         </View>
@@ -274,6 +387,104 @@ export const StatsCard: React.FC<StatsCardProps> = ({ isDark }) => {
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {renderContent()}
       </ScrollView>
+
+      {/* Status Details Modal */}
+      <Modal visible={showDetailsModal} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <LinearGradient
+            colors={isDark ? ['#1e293b', '#334155'] : ['#ffffff', '#f8fafc']}
+            style={styles.detailsModal}
+          >
+            <View style={styles.detailsHeader}>
+              <View style={styles.detailsTitleRow}>
+                <Text style={[styles.detailsTitle, { color: isDark ? '#f8fafc' : '#0f172a' }]}>
+                  {formatStatusLabel(selectedStatus)}
+                </Text>
+                <TouchableOpacity onPress={() => setShowDetailsModal(false)}>
+                  <Ionicons name="close" size={24} color={isDark ? '#f8fafc' : '#0f172a'} />
+                </TouchableOpacity>
+              </View>
+              <Text style={[styles.detailsSubtitle, { color: isDark ? '#94a3b8' : '#64748b' }]}>
+                {statusRecords.length} record{statusRecords.length !== 1 ? 's' : ''}
+              </Text>
+            </View>
+
+            {loadingRecords ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color="#3b82f6" />
+                <Text style={[styles.loadingText, { color: isDark ? '#94a3b8' : '#64748b' }]}>
+                  Loading records...
+                </Text>
+              </View>
+            ) : (
+              <FlatList
+                data={statusRecords}
+                keyExtractor={(item) => item.id.toString()}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={[
+                      styles.recordCard,
+                      { backgroundColor: isDark ? '#334155' : '#f8fafc' }
+                    ]}
+                    onPress={() => handleUserClick(item)}
+                  >
+                    <View style={styles.recordHeader}>
+                      <LinearGradient
+                        colors={['#3b82f6', '#8b5cf6']}
+                        style={styles.recordAvatar}
+                      >
+                        <Text style={styles.recordAvatarText}>
+                          {item.name?.charAt(0).toUpperCase() || 'U'}
+                        </Text>
+                      </LinearGradient>
+                      <View style={styles.recordInfo}>
+                        <Text style={[styles.recordName, { color: isDark ? '#f8fafc' : '#0f172a' }]}>
+                          {item.name}
+                        </Text>
+                        <Text style={[styles.recordPhone, { color: isDark ? '#94a3b8' : '#64748b' }]}>
+                          {item.mobile_no}
+                        </Text>
+                      </View>
+                    </View>
+                    {item.feedback && (
+                      <View style={[styles.feedbackBadge, { backgroundColor: isDark ? '#1e293b' : '#e0e7ff' }]}>
+                        <Ionicons name="chatbubble" size={12} color={isDark ? '#60a5fa' : '#3b82f6'} />
+                        <Text style={[styles.feedbackText, { color: isDark ? '#94a3b8' : '#64748b' }]} numberOfLines={1}>
+                          {item.feedback}
+                        </Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                )}
+                ListEmptyComponent={
+                  <View style={styles.emptyContainer}>
+                    <Ionicons name="document-outline" size={48} color={isDark ? '#475569' : '#cbd5e1'} />
+                    <Text style={[styles.emptyText, { color: isDark ? '#94a3b8' : '#64748b' }]}>
+                      No records found
+                    </Text>
+                  </View>
+                }
+                contentContainerStyle={styles.recordsList}
+              />
+            )}
+          </LinearGradient>
+        </View>
+      </Modal>
+
+      {/* User Details Modal */}
+      <UserDetailsModal
+        visible={showUserModal}
+        onClose={() => setShowUserModal(false)}
+        user={selectedUser}
+        isDark={isDark}
+        onUserUpdate={() => {
+          // Refresh the status records
+          if (selectedStatus) {
+            handleStatusClick(selectedStatus);
+          }
+        }}
+        currentUser={currentUser}
+      />
     </LinearGradient>
   );
 };
@@ -281,7 +492,7 @@ export const StatsCard: React.FC<StatsCardProps> = ({ isDark }) => {
 const styles = StyleSheet.create({
   container: {
     borderRadius: 20,
-    margin: 16,
+    margin: 0,
     paddingBottom: 8,
     overflow: 'hidden',
   },
@@ -342,6 +553,53 @@ const styles = StyleSheet.create({
   statsWrapper: {
     paddingHorizontal: 16,
   },
+  summaryCardsContainer: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 24,
+  },
+  summaryCard: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  summaryIconWrapper: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  summaryCardLabel: {
+    fontSize: 9,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+    marginBottom: 4,
+  },
+  summaryCardValue: {
+    fontSize: 20,
+    fontWeight: '900',
+    letterSpacing: -0.5,
+  },
+  sectionHeader: {
+    marginBottom: 16,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+  divider: {
+    height: 2,
+    borderRadius: 1,
+  },
   summaryRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -368,18 +626,28 @@ const styles = StyleSheet.create({
     alignItems: 'baseline',
   },
   statsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
+    gap: 10,
   },
   statCard: {
-    width: '47.8%',
-    padding: 16,
-    borderRadius: 16,
-    shadowOffset: { width: 0, height: 2 },
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  statContent: {
+    marginBottom: 8,
+  },
+  statLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  statTextContainer: {
+    flex: 1,
   },
   statHeader: {
     flexDirection: 'row',
@@ -388,35 +656,39 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   statIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
   },
+  statMetrics: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 8,
+    marginTop: 2,
+  },
   statValue: {
-    fontSize: 20,
-    fontWeight: '700',
+    fontSize: 18,
+    fontWeight: '800',
   },
   statLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    marginBottom: 8,
+    fontSize: 12,
+    fontWeight: '600',
+    marginBottom: 2,
   },
   progressBar: {
-    height: 6,
-    borderRadius: 3,
-    marginBottom: 4,
+    height: 4,
+    borderRadius: 2,
     overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
-    borderRadius: 3,
+    borderRadius: 2,
   },
   percentage: {
-    fontSize: 10,
-    fontWeight: '800',
-    textAlign: 'right',
+    fontSize: 11,
+    fontWeight: '700',
   },
   centerContent: {
     padding: 60,
@@ -434,5 +706,100 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     textAlign: 'center',
     lineHeight: 20,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  detailsModal: {
+    height: '85%',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 20,
+  },
+  detailsHeader: {
+    marginBottom: 20,
+  },
+  detailsTitleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  detailsTitle: {
+    fontSize: 24,
+    fontWeight: '800',
+  },
+  detailsSubtitle: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 40,
+  },
+  recordsList: {
+    paddingBottom: 20,
+  },
+  recordCard: {
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  recordHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 8,
+  },
+  recordAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  recordAvatarText: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#ffffff',
+  },
+  recordInfo: {
+    flex: 1,
+  },
+  recordName: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  recordPhone: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  feedbackBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    padding: 8,
+    borderRadius: 8,
+    marginTop: 8,
+  },
+  feedbackText: {
+    fontSize: 12,
+    fontWeight: '500',
+    flex: 1,
+  },
+  emptyContainer: {
+    padding: 60,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

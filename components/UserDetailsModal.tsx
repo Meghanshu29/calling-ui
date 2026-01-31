@@ -1,9 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import React, { useEffect, useState } from 'react';
-import { Linking, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { Keyboard, Linking, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { getAssignmentStats } from '../endpoints/stats';
 import { updateFeedback, updateUserInstructionAndAssignment } from '../endpoints/users';
+import { useToast } from '../hooks/useToast';
 import { GradientButton } from './GradientButton';
+import { Toast } from './Toast';
 
 interface User {
   id: number;
@@ -44,12 +47,34 @@ export const UserDetailsModal: React.FC<UserDetailsModalProps> = ({
   const [updating, setUpdating] = useState(false);
   const [editableInstruction, setEditableInstruction] = useState('');
   const [updatingInstruction, setUpdatingInstruction] = useState(false);
+  const [editableAssignedTo, setEditableAssignedTo] = useState('');
+  const [updatingAssignment, setUpdatingAssignment] = useState(false);
+  const [agents, setAgents] = useState<string[]>([]);
+  const [showAgentModal, setShowAgentModal] = useState(false);
+  const [agentSearch, setAgentSearch] = useState('');
+  const instructionInputRef = useRef<TextInput>(null);
+  const { toast, showSuccess, showError, hideToast } = useToast();
   
   useEffect(() => {
     if (user) {
       setEditableInstruction(user.instruction || '');
+      setEditableAssignedTo(user.assigned_to || '');
     }
+    fetchAgents();
   }, [user]);
+
+  const fetchAgents = async () => {
+    try {
+      const response = await getAssignmentStats();
+      if (response && Array.isArray(response.data)) {
+        const agentNames = response.data.map(stat => stat.assigned_to).filter(Boolean);
+        const uniqueAgents = [...new Set(agentNames)].sort((a, b) => a.localeCompare(b));
+        setAgents(uniqueAgents);
+      }
+    } catch (error) {
+      console.error('Error fetching agents:', error);
+    }
+  };
   
   if (!user) return null;
 
@@ -71,7 +96,7 @@ export const UserDetailsModal: React.FC<UserDetailsModalProps> = ({
 
   const handleUpdateStatus = async () => {
     if (!selectedStatus || !feedback.trim()) {
-      alert('Please select status and enter feedback');
+      showError('Please select status and enter feedback');
       return;
     }
     
@@ -91,14 +116,14 @@ export const UserDetailsModal: React.FC<UserDetailsModalProps> = ({
         );
       }
 
-      alert('Status updated successfully!');
+      showSuccess('Status updated successfully!');
       setSelectedStatus('');
       setFeedback('');
       onUserUpdate?.();
-      onClose();
+      setTimeout(() => onClose(), 1500);
     } catch (error) {
       console.error('Error updating status:', error);
-      alert('Failed to update status');
+      showError('Failed to update status');
     } finally {
       setUpdating(false);
     }
@@ -106,7 +131,7 @@ export const UserDetailsModal: React.FC<UserDetailsModalProps> = ({
 
   const handleUpdateInstruction = async () => {
     if (!editableInstruction.trim()) {
-      alert('Please enter an instruction');
+      showError('Please enter an instruction');
       return;
     }
     
@@ -117,13 +142,39 @@ export const UserDetailsModal: React.FC<UserDetailsModalProps> = ({
         editableInstruction,
         user.assigned_to
       );
-      alert('Instruction updated successfully!');
+      showSuccess('Instruction updated successfully!');
       onUserUpdate?.();
     } catch (error) {
       console.error('Error updating instruction:', error);
-      alert('Failed to update instruction');
+      showError('Failed to update instruction');
     } finally {
       setUpdatingInstruction(false);
+    }
+  };
+
+  const handleUpdateAssignment = async () => {
+    if (!editableAssignedTo.trim()) {
+      showError('Please select an agent');
+      return;
+    }
+    
+    setUpdatingAssignment(true);
+    try {
+      await updateUserInstructionAndAssignment(
+        user.id,
+        editableInstruction || user.instruction || '',
+        editableAssignedTo
+      );
+      showSuccess('Assignment updated successfully!');
+      // Blur the instruction input and dismiss keyboard
+      instructionInputRef.current?.blur();
+      Keyboard.dismiss();
+      onUserUpdate?.();
+    } catch (error) {
+      console.error('Error updating assignment:', error);
+      showError('Failed to update assignment');
+    } finally {
+      setUpdatingAssignment(false);
     }
   };
 
@@ -331,9 +382,133 @@ export const UserDetailsModal: React.FC<UserDetailsModalProps> = ({
                 </GradientButton>
               </View>
             )}
+
+            {/* Update Assign To Section */}
+            <View style={[styles.updateSection, { backgroundColor: isDark ? '#475569' : '#f0fdf4', marginTop: 20 }]}>
+              <Text style={[styles.updateTitle, { color: isDark ? '#f8fafc' : '#0f172a' }]}>Update Assignment</Text>
+              
+              <View style={styles.feedbackSection}>
+                <Text style={[styles.inputLabel, { color: isDark ? '#94a3b8' : '#6b7280' }]}>Assigned To</Text>
+                <TouchableOpacity
+                  style={[
+                    styles.pickerButton,
+                    {
+                      backgroundColor: isDark ? '#334155' : '#ffffff',
+                      borderColor: isDark ? '#64748b' : '#e2e8f0',
+                    }
+                  ]}
+                  onPress={() => setShowAgentModal(true)}
+                >
+                  <Text style={[styles.pickerButtonText, { color: editableAssignedTo ? (isDark ? '#f8fafc' : '#0f172a') : (isDark ? '#94a3b8' : '#64748b') }]}>
+                    {editableAssignedTo || 'Select agent...'}
+                  </Text>
+                  <Ionicons name="chevron-down" size={20} color={isDark ? '#94a3b8' : '#64748b'} />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.feedbackSection}>
+                <Text style={[styles.inputLabel, { color: isDark ? '#94a3b8' : '#6b7280' }]}>Instruction</Text>
+                <TextInput
+                  ref={instructionInputRef}
+                  style={[
+                    styles.feedbackInput,
+                    {
+                      backgroundColor: isDark ? '#334155' : '#ffffff',
+                      borderColor: isDark ? '#64748b' : '#e2e8f0',
+                      color: isDark ? '#f8fafc' : '#0f172a',
+                    }
+                  ]}
+                  placeholder="Enter instruction..."
+                  placeholderTextColor={isDark ? '#94a3b8' : '#64748b'}
+                  value={editableInstruction}
+                  onChangeText={setEditableInstruction}
+                  multiline
+                  numberOfLines={3}
+                  textAlignVertical="top"
+                />
+              </View>
+
+              <GradientButton 
+                onPress={handleUpdateAssignment} 
+                loading={updatingAssignment}
+              >
+                Update Assignment
+              </GradientButton>
+            </View>
+
+            {/* Agent Picker Modal */}
+            <Modal visible={showAgentModal} transparent animationType="fade">
+              <TouchableOpacity 
+                style={styles.pickerOverlay}
+                activeOpacity={1}
+                onPress={() => setShowAgentModal(false)}
+              >
+                <View 
+                  style={[styles.pickerContainer, { backgroundColor: isDark ? '#1e293b' : '#ffffff' }]}
+                  onStartShouldSetResponder={() => true}
+                >
+                  <View style={styles.pickerHeader}>
+                    <Text style={[styles.pickerTitle, { color: isDark ? '#f8fafc' : '#0f172a' }]}>Select Agent</Text>
+                    <TouchableOpacity onPress={() => setShowAgentModal(false)}>
+                      <Ionicons name="close" size={24} color={isDark ? '#94a3b8' : '#64748b'} />
+                    </TouchableOpacity>
+                  </View>
+                  
+                  <View style={[styles.searchBar, { backgroundColor: isDark ? '#334155' : '#f8fafc' }]}>
+                    <Ionicons name="search" size={20} color={isDark ? '#94a3b8' : '#64748b'} />
+                    <TextInput
+                      style={[styles.searchInput, { color: isDark ? '#f8fafc' : '#0f172a' }]}
+                      placeholder="Search agents..."
+                      placeholderTextColor={isDark ? '#94a3b8' : '#64748b'}
+                      value={agentSearch}
+                      onChangeText={setAgentSearch}
+                    />
+                  </View>
+
+                  <ScrollView style={styles.agentList}>
+                    {agents
+                      .filter(agent => agent.toLowerCase().includes(agentSearch.toLowerCase()))
+                      .map((agent) => (
+                        <TouchableOpacity
+                          key={agent}
+                          style={[
+                            styles.agentItem,
+                            { borderBottomColor: isDark ? '#334155' : '#f1f5f9' }
+                          ]}
+                          onPress={() => {
+                            setEditableAssignedTo(agent);
+                            setShowAgentModal(false);
+                            setAgentSearch('');
+                          }}
+                        >
+                          <Text style={[styles.agentItemText, { color: isDark ? '#f8fafc' : '#0f172a' }]}>{agent}</Text>
+                          {editableAssignedTo === agent && (
+                            <Ionicons name="checkmark-circle" size={20} color="#10b981" />
+                          )}
+                        </TouchableOpacity>
+                      ))}
+                    {agents.filter(agent => agent.toLowerCase().includes(agentSearch.toLowerCase())).length === 0 && (
+                      <View style={{ padding: 20, alignItems: 'center' }}>
+                        <Ionicons name="people-outline" size={32} color={isDark ? '#475569' : '#cbd5e1'} />
+                        <Text style={[styles.noAgentsText, { color: isDark ? '#94a3b8' : '#64748b', marginTop: 8 }]}>
+                          No agents found
+                        </Text>
+                      </View>
+                    )}
+                  </ScrollView>
+                </View>
+              </TouchableOpacity>
+            </Modal>
           </ScrollView>
         </LinearGradient>
       </View>
+
+      <Toast
+        message={toast.message}
+        type={toast.type}
+        visible={toast.visible}
+        onHide={hideToast}
+      />
     </Modal>
   );
 };
@@ -464,5 +639,77 @@ const styles = StyleSheet.create({
     minHeight: 80,
     width: '100%',
     marginBottom: 12,
+  },
+  pickerButton: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    minHeight: 50,
+  },
+  pickerButtonText: {
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  pickerOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  pickerContainer: {
+    width: '100%',
+    maxHeight: '70%',
+    borderRadius: 20,
+    padding: 20,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  pickerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  pickerTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    marginBottom: 15,
+    height: 45,
+  },
+  searchInput: {
+    flex: 1,
+    marginLeft: 8,
+    fontSize: 16,
+  },
+  agentList: {
+    maxHeight: 400,
+  },
+  agentItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+  },
+  agentItemText: {
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  noAgentsText: {
+    textAlign: 'center',
+    fontSize: 14,
   },
 });

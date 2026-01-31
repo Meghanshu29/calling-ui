@@ -130,6 +130,7 @@ export default function StatisticsScreen() {
   const renderStatsCard = ({ item }: { item: AssignmentStats }) => {
     const totalCalls = item.total;
     const completionRate = totalCalls > 0 ? (((totalCalls - item.pending) / totalCalls) * 100).toFixed(1) : "0";
+    const conversionRate = totalCalls > 0 ? ((item.interested / totalCalls) * 100).toFixed(1) : "0";
 
     return (
       <View style={[styles.statsCard, { 
@@ -150,9 +151,38 @@ export default function StatisticsScreen() {
             <Text style={[styles.statsName, { color: isDark ? "#f8fafc" : "#0f172a" }]}>
               {item.assigned_to}
             </Text>
-            <Text style={[styles.statsTotal, { color: isDark ? "#94a3b8" : "#64748b" }]}>
-              Total: {totalCalls} • Completion: {completionRate}%
-            </Text>
+          </View>
+        </View>
+
+        <View style={styles.statsMetricsRow}>
+          <View style={styles.metricColumn}>
+            <Text style={[styles.metricLabel, { color: isDark ? "#64748b" : "#94a3b8" }]}>Total</Text>
+            <View style={styles.metricValueRow}>
+              <Ionicons name="call" size={16} color={isDark ? "#94a3b8" : "#64748b"} />
+              <Text style={[styles.metricText, { color: isDark ? "#f8fafc" : "#0f172a" }]}>
+                {totalCalls}
+              </Text>
+            </View>
+          </View>
+          <View style={styles.metricDivider} />
+          <View style={styles.metricColumn}>
+            <Text style={[styles.metricLabel, { color: isDark ? "#64748b" : "#94a3b8" }]}>Done</Text>
+            <View style={styles.metricValueRow}>
+              <Ionicons name="checkmark-circle" size={16} color="#3b82f6" />
+              <Text style={[styles.metricText, { color: '#3b82f6' }]}>
+                {completionRate}%
+              </Text>
+            </View>
+          </View>
+          <View style={styles.metricDivider} />
+          <View style={styles.metricColumn}>
+            <Text style={[styles.metricLabel, { color: isDark ? "#64748b" : "#94a3b8" }]}>Conversion</Text>
+            <View style={styles.metricValueRow}>
+              <Ionicons name="trending-up" size={16} color="#10b981" />
+              <Text style={[styles.metricText, { color: '#10b981' }]}>
+                {conversionRate}%
+              </Text>
+            </View>
           </View>
         </View>
 
@@ -523,5 +553,80 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 14,
     fontWeight: '500',
+  },
+  metricsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 4,
+    flexWrap: 'wrap',
+  },
+  statsMetricsRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(148, 163, 184, 0.1)',
+    gap: 16,
+  },
+  metricItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flex: 1,
+  },
+  metricLabel: {
+    fontSize: 10,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  metricText: {
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  metricDivider: {
+    width: 1,
+    height: 40,
+    backgroundColor: '#cbd5e1',
+    opacity: 0.2,
+  },
+  metricsGrid: {
+    flexDirection: 'row',
+    marginTop: 8,
+    gap: 16,
+  },
+  metricColumn: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  metricValue: {
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  metricValueRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  metricBadges: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 6,
+  },
+  metricBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  metricBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
   },
 });
