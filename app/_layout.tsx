@@ -5,6 +5,7 @@ import {
     DefaultTheme,
     ThemeProvider,
 } from "@react-navigation/native";
+import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold, Inter_800ExtraBold } from '@expo-google-fonts/inter';
 import { LinearGradient } from "expo-linear-gradient";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -13,6 +14,7 @@ import { useEffect } from "react";
 import "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { AuthProvider } from "../contexts/AuthContext";
+import "../styles/global";
 export const unstable_settings = {
   anchor: "login",
 };
@@ -21,12 +23,19 @@ export default function RootLayout() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
   
+  const [fontsLoaded] = useFonts({
+    Inter_400Regular,
+    Inter_500Medium,
+    Inter_600SemiBold,
+    Inter_700Bold,
+    Inter_800ExtraBold,
+  });
+  
   useEffect(() => {
     const checkForUpdates = async () => {
       try {
         const update = await Updates.checkForUpdateAsync();
         if (update.isAvailable) {
-          // Auto-logout user when update is available
           await AsyncStorage.multiRemove(['authToken', 'userInfo', 'savedUserId', 'savedPassword', 'rememberMe']);
           console.log('Update available - user logged out automatically');
           
@@ -40,6 +49,10 @@ export default function RootLayout() {
 
     checkForUpdates();
   }, []);
+  
+  if (!fontsLoaded) {
+    return null;
+  }
   
   return (
     <AuthProvider>
