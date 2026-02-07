@@ -223,3 +223,19 @@ export const updateUserInstructionAndAssignment = async (
   });
 };
 
+export const sendFileToEmail = async (base64Content: string, email: string, filename: string) => {
+  // Create a data URI for the file
+  const dataUri = `data:text/csv;base64,${base64Content}`;
+  
+  const formData = new FormData();
+  // Backend expects 'file' as UploadFile
+  formData.append('file', {
+    uri: dataUri,
+    name: filename,
+    type: 'text/csv'
+  } as any);
+  formData.append('email', email);
+  
+  return await ApiRequest("POST", "admin/send-file-to-email", formData);
+};
+

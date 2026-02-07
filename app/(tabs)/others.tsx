@@ -18,9 +18,9 @@ import {
 import { Toast } from "../../components/Toast";
 import { UserDetailsModal } from "../../components/UserDetailsModal";
 import { getAssignmentStats } from "../../endpoints/stats";
-import { getBusyCallLaterUsers, getCompleteSoonUsers, getDeclinedUsers, getEscalatedUsers, getInterestedNotRegisteredUsers, getInterestedUsers, getMarriedEngagedUsers, getNeedHelpUsers, getNotInterestedUsers, getNotSeriousUsers, getStatesAndCities } from "../../endpoints/users";
+import { getBusyCallLaterUsers, getCompleteSoonUsers, getDeclinedUsers, getEscalatedUsers, getInterestedNotRegisteredUsers, getInterestedUsers, getMarriedEngagedUsers, getNeedHelpUsers, getNotInterestedUsers, getNotSeriousUsers, getStatesAndCities, sendFileToEmail } from "../../endpoints/users";
 import { useToast } from "../../hooks/useToast";
-import { exportToCSV } from "../../utils/excelExport";
+import { exportToCSV, generateCSVBase64 } from "../../utils/excelExport";
 
 type SubTabType = "Busy Call Later" | "Declined" | "Not Serious" | "Escalate to Sonia" | "Interested" | "Not Interested" | "Interested Not Registered" | "Married/Engaged" | "Complete Soon" | "Need Help completing";
 
@@ -85,6 +85,7 @@ export default function OthersScreen() {
   const [showUserDetails, setShowUserDetails] = useState(false);
   const [loading, setLoading] = useState(false);
   const [downloadingExcel, setDownloadingExcel] = useState(false);
+  const [sendingEmail, setSendingEmail] = useState(false);
   const [loggedInUser, setLoggedInUser] = useState<string | null>(null);
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
@@ -414,6 +415,39 @@ export default function OthersScreen() {
     }
   };
 
+  const handleSendEmail = async () => {
+    try {
+      setSendingEmail(true);
+      const data = getCurrentData();
+      if (data.length === 0) {
+        showError("No data to export");
+        return;
+      }
+      
+      const userInfo = await AsyncStorage.getItem("userInfo");
+      if (!userInfo) {
+        showError("User information not found");
+        return;
+      }
+      const parsedUser = JSON.parse(userInfo);
+      const email = parsedUser.email || "";
+      
+      if (!email) {
+        showError("Email address not found");
+        return;
+      }
+
+      const { base64, filename } = generateCSVBase64(data, `${activeSubTab.replace(/\s+/g, '_')}_users`);
+      await sendFileToEmail(base64, email, filename);
+      showSuccess(`Excel file sent to ${email}`);
+    } catch (error) {
+      console.error("Error sending email:", error);
+      showError("Failed to send Excel file");
+    } finally {
+      setSendingEmail(false);
+    }
+  };
+
   const renderUserCard = ({ item }: { item: User }) => (
     <TouchableOpacity
       style={[styles.userCard, { backgroundColor: isDark ? "#1e293b" : "#ffffff" }]}
@@ -581,23 +615,45 @@ export default function OthersScreen() {
 
         {/* Download Excel Button - Only for Super Admin */}
         {userRole === 'SUPER_ADMIN' && (
-          <TouchableOpacity
-            style={[styles.downloadButton, {
-              backgroundColor: downloadingExcel ? (isDark ? "#334155" : "#e2e8f0") : "#10b981",
-              opacity: downloadingExcel ? 0.6 : 1
-            }]}
-            onPress={handleDownloadExcel}
-            disabled={downloadingExcel}
-          >
-            {downloadingExcel ? (
-              <ActivityIndicator size="small" color="#ffffff" />
-            ) : (
-              <Ionicons name="download" size={20} color="#ffffff" />
-            )}
-            <Text style={styles.downloadButtonText}>
-              {downloadingExcel ? "Downloading..." : "Download Excel"}
-            </Text>
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', gap: 12, marginTop: 12 }}>
+            <TouchableOpacity
+              style={[styles.downloadButton, {
+                backgroundColor: downloadingExcel ? (isDark ? "#334155" : "#e2e8f0") : "#10b981",
+                opacity: downloadingExcel ? 0.6 : 1,
+                flex: 1
+              }]}
+              onPress={handleDownloadExcel}
+              disabled={downloadingExcel}
+            >
+              {downloadingExcel ? (
+                <ActivityIndicator size="small" color="#ffffff" />
+              ) : (
+                <Ionicons name="download" size={20} color="#ffffff" />
+              )}
+              <Text style={styles.downloadButtonText}>
+                {downloadingExcel ? "Downloading..." : "Download Excel"}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.downloadButton, {
+                backgroundColor: sendingEmail ? (isDark ? "#334155" : "#e2e8f0") : "#3b82f6",
+                opacity: sendingEmail ? 0.6 : 1,
+                flex: 1
+              }]}
+              onPress={handleSendEmail}
+              disabled={sendingEmail}
+            >
+              {sendingEmail ? (
+                <ActivityIndicator size="small" color="#ffffff" />
+              ) : (
+                <Ionicons name="mail" size={20} color="#ffffff" />
+              )}
+              <Text style={styles.downloadButtonText}>
+                {sendingEmail ? "Sending..." : "Send to Email"}
+              </Text>
+            </TouchableOpacity>
+          </View>
         )}
 
         {/* Agent Filter Dropdown - For All Users */}
