@@ -15,7 +15,7 @@ import {
 } from "react-native";
 import { CallingDetailsModal } from "../../components/CallingDetailsModal";
 import { Toast } from "../../components/Toast";
-import { AssignmentStats, getAssignmentStats } from "../../endpoints/stats";
+import { AssignmentStats, getAssignmentStats, sendStatisticsEmail, getComparisonStats, ComparisonData } from "../../endpoints/stats";
 import { useToast } from "../../hooks/useToast";
 
 const TIME_PERIODS = [
@@ -38,9 +38,13 @@ export default function StatisticsScreen() {
   const [selectedStatus, setSelectedStatus] = useState<string | undefined>(undefined);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
+
+  const [showComparison, setShowComparison] = useState(false);
+  const [comparisonData, setComparisonData] = useState<ComparisonData | null>(null);
+  const [sendingAgentEmail, setSendingAgentEmail] = useState<{[key: string]: boolean}>({});
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
-  const { toast, showError, hideToast } = useToast();
+  const { toast, showError, showSuccess, hideToast } = useToast();
 
   useEffect(() => {
     loadUserAndStats();
@@ -127,10 +131,195 @@ export default function StatisticsScreen() {
     );
   };
 
+  const handleSendAgentEmail = async (agentName: string) => {
+    try {
+      setSendingAgentEmail(prev => ({ ...prev, [agentName]: true }));
+      const userInfo = await AsyncStorage.getItem("userInfo");
+      if (!userInfo) {
+        showError("User information not found");
+        return;
+      }
+      const parsedUser = JSON.parse(userInfo);
+      const email = parsedUser.email || "";
+      
+      if (!email) {
+        showError("Email address not found");
+        return;
+      }
+
+      await sendStatisticsEmail(agentName, email, selectedPeriod);
+      showSuccess(`Statistics sent for ${agentName}`);
+    } catch (error) {
+      console.error("Error sending email:", error);
+      showError("Failed to send statistics email");
+    } finally {
+      setSendingAgentEmail(prev => ({ ...prev, [agentName]: false }));
+    }
+  };
+
+  const loadComparison = async () => {
+    try {
+      setShowComparison(true);
+      const data = await getComparisonStats();
+      console.log('Comparison data loaded:', data);
+      setComparisonData(data);
+    } catch (error) {
+      console.error("Error loading comparison:", error);
+      showError("Failed to load comparison data");
+      setShowComparison(false);
+    }
+  };
+
+  const calculateChange = (current: number, previous: number) => {
+    if (previous === 0) return current > 0 ? 100 : 0;
+    return ((current - previous) / previous) * 100;
+  };
+
+  const getAgentStats = (data: AssignmentStats[], agent: string) => {
+    return data.find(s => s.assigned_to === agent) || { total: 0, interested: 0, pending: 0 };
+  };
+
+  const renderComparison = () => {
+    if (!comparisonData) {
+      return (
+        <View style={[styles.comparisonContainer, { 
+          backgroundColor: isDark ? "#1e293b" : "#ffffff",
+          borderColor: isDark ? "#475569" : "#e2e8f0"
+        }]}>
+          <ActivityIndicator size="large" color="#10b981" />
+          <Text style={{ textAlign: 'center', marginTop: 12, color: isDark ? "#94a3b8" : "#64748b" }}>Loading comparison...</Text>
+        </View>
+      );
+    }
+
+    console.log('Rendering comparison with agents:', masterAgents.length);
+
+    return (
+      <View style={[styles.comparisonContainer, { 
+        backgroundColor: isDark ? "#1e293b" : "#ffffff",
+        borderColor: isDark ? "#475569" : "#e2e8f0"
+      }]}>
+        <View style={styles.comparisonHeader}>
+          <View>
+            <Text style={[styles.comparisonTitle, { color: isDark ? "#f8fafc" : "#0f172a" }]}>
+              Performance Comparison
+            </Text>
+            <Text style={[styles.comparisonSubtitle, { color: isDark ? "#94a3b8" : "#64748b" }]}>
+              Today's performance vs historical data
+            </Text>
+          </View>
+          <TouchableOpacity onPress={() => setShowComparison(false)}>
+            <Ionicons name="close" size={24} color={isDark ? "#94a3b8" : "#64748b"} />
+          </TouchableOpacity>
+        </View>
+
+        <ScrollView style={styles.comparisonScroll} showsVerticalScrollIndicator={true}>
+          {masterAgents.map(agent => {
+            const today = getAgentStats(comparisonData.today, agent);
+            const yesterday = getAgentStats(comparisonData.yesterday, agent);
+            const last7Avg = getAgentStats(comparisonData.last7, agent).total / 7;
+            const vsYesterday = calculateChange(today.total, yesterday.total);
+            const vsLast7 = calculateChange(today.total, last7Avg);
+
+            return (
+              <View key={agent} style={[styles.comparisonCard, {
+                backgroundColor: isDark ? "#0f172a" : "#f8fafc",
+                borderColor: isDark ? "#334155" : "#e2e8f0"
+              }]}>
+                {/* Agent Header */}
+                <View style={styles.comparisonCardHeader}>
+                  <LinearGradient
+                    colors={["#f97316", "#ea580c"]}
+                    style={styles.comparisonAvatar}
+                  >
+                    <Text style={styles.comparisonAvatarText}>
+                      {agent.charAt(0).toUpperCase()}
+                    </Text>
+                  </LinearGradient>
+                  <Text style={[styles.comparisonAgentName, { color: isDark ? "#f8fafc" : "#0f172a" }]}>
+                    {agent}
+                  </Text>
+                </View>
+
+                {/* Today's Stats */}
+                <View style={styles.todayStats}>
+                  <Text style={[styles.todayLabel, { color: isDark ? "#94a3b8" : "#64748b" }]}>Today's Calls</Text>
+                  <Text style={[styles.todayValue, { color: "#3b82f6" }]}>{today.total}</Text>
+                </View>
+
+                {/* Comparison Metrics */}
+                <View style={styles.comparisonMetrics}>
+                  {/* vs Yesterday */}
+                  <View style={[styles.metricBox, {
+                    backgroundColor: isDark ? "#1e293b" : "#ffffff",
+                    borderColor: vsYesterday >= 0 ? "#10b981" : "#ef4444"
+                  }]}>
+                    <View style={styles.metricHeader}>
+                      <Ionicons name="calendar-outline" size={16} color={isDark ? "#94a3b8" : "#64748b"} />
+                      <Text style={[styles.metricTitle, { color: isDark ? "#94a3b8" : "#64748b" }]}>vs Yesterday</Text>
+                    </View>
+                    <View style={styles.metricContent}>
+                      <Text style={[styles.metricCount, { color: isDark ? "#f8fafc" : "#0f172a" }]}>
+                        {yesterday.total}
+                      </Text>
+                      <View style={styles.metricChange}>
+                        <Ionicons 
+                          name={vsYesterday >= 0 ? "arrow-up" : "arrow-down"} 
+                          size={18} 
+                          color={vsYesterday >= 0 ? "#10b981" : "#ef4444"} 
+                        />
+                        <Text style={[styles.metricPercent, { color: vsYesterday >= 0 ? "#10b981" : "#ef4444" }]}>
+                          {Math.abs(vsYesterday).toFixed(0)}%
+                        </Text>
+                      </View>
+                    </View>
+                    <Text style={[styles.metricLabel, { color: vsYesterday >= 0 ? "#10b981" : "#ef4444" }]}>
+                      {vsYesterday >= 0 ? "Increased" : "Decreased"}
+                    </Text>
+                  </View>
+
+                  {/* vs Last 7 Days */}
+                  <View style={[styles.metricBox, {
+                    backgroundColor: isDark ? "#1e293b" : "#ffffff",
+                    borderColor: vsLast7 >= 0 ? "#10b981" : "#ef4444"
+                  }]}>
+                    <View style={styles.metricHeader}>
+                      <Ionicons name="calendar" size={16} color={isDark ? "#94a3b8" : "#64748b"} />
+                      <Text style={[styles.metricTitle, { color: isDark ? "#94a3b8" : "#64748b" }]}>vs Last 7 Days Avg</Text>
+                    </View>
+                    <View style={styles.metricContent}>
+                      <Text style={[styles.metricCount, { color: isDark ? "#f8fafc" : "#0f172a" }]}>
+                        {last7Avg.toFixed(1)}
+                      </Text>
+                      <View style={styles.metricChange}>
+                        <Ionicons 
+                          name={vsLast7 >= 0 ? "arrow-up" : "arrow-down"} 
+                          size={18} 
+                          color={vsLast7 >= 0 ? "#10b981" : "#ef4444"} 
+                        />
+                        <Text style={[styles.metricPercent, { color: vsLast7 >= 0 ? "#10b981" : "#ef4444" }]}>
+                          {Math.abs(vsLast7).toFixed(0)}%
+                        </Text>
+                      </View>
+                    </View>
+                    <Text style={[styles.metricLabel, { color: vsLast7 >= 0 ? "#10b981" : "#ef4444" }]}>
+                      {vsLast7 >= 0 ? "Above Average" : "Below Average"}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            );
+          })}
+        </ScrollView>
+      </View>
+    );
+  };
+
   const renderStatsCard = ({ item }: { item: AssignmentStats }) => {
     const totalCalls = item.total;
     const completionRate = totalCalls > 0 ? (((totalCalls - item.pending) / totalCalls) * 100).toFixed(1) : "0";
     const conversionRate = totalCalls > 0 ? ((item.interested / totalCalls) * 100).toFixed(1) : "0";
+    const isEmailSending = sendingAgentEmail[item.assigned_to] || false;
 
     return (
       <View style={[styles.statsCard, { 
@@ -152,6 +341,17 @@ export default function StatisticsScreen() {
               {item.assigned_to}
             </Text>
           </View>
+          <TouchableOpacity
+            style={[styles.agentEmailButton, { opacity: isEmailSending ? 0.6 : 1 }]}
+            onPress={() => handleSendAgentEmail(item.assigned_to)}
+            disabled={isEmailSending}
+          >
+            {isEmailSending ? (
+              <ActivityIndicator size="small" color="#3b82f6" />
+            ) : (
+              <Ionicons name="mail-outline" size={20} color="#3b82f6" />
+            )}
+          </TouchableOpacity>
         </View>
 
         <View style={styles.statsMetricsRow}>
@@ -350,7 +550,23 @@ export default function StatisticsScreen() {
             </TouchableOpacity>
           ) : null}
         </View>
+
+        {/* Comparison Button */}
+        <TouchableOpacity
+          style={[styles.comparisonButton, { 
+            backgroundColor: isDark ? "#1e293b" : "#ffffff",
+            borderColor: "#10b981"
+          }]}
+          onPress={loadComparison}
+        >
+          <Ionicons name="git-compare" size={20} color="#10b981" />
+          <Text style={[styles.comparisonButtonText, { color: "#10b981" }]}>
+            Compare Performance
+          </Text>
+        </TouchableOpacity>
       </View>
+
+      {showComparison && renderComparison()}
 
       {loading ? (
         <View style={styles.loadingContainer}>
@@ -628,5 +844,139 @@ const styles = StyleSheet.create({
   metricBadgeText: {
     fontSize: 11,
     fontWeight: '700',
+  },
+  comparisonButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    marginTop: 12,
+    gap: 8,
+    borderWidth: 2,
+  },
+  comparisonButtonText: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  comparisonContainer: {
+    marginHorizontal: 20,
+    marginBottom: 16,
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    maxHeight: 500,
+  },
+  comparisonHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 20,
+  },
+  comparisonTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+  },
+  comparisonSubtitle: {
+    fontSize: 13,
+    fontWeight: '500',
+    marginTop: 4,
+  },
+  comparisonScroll: {
+    maxHeight: 400,
+  },
+  comparisonCard: {
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+  },
+  comparisonCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    gap: 12,
+  },
+  comparisonAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  comparisonAvatarText: {
+    color: '#ffffff',
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  comparisonAgentName: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  todayStats: {
+    alignItems: 'center',
+    paddingVertical: 12,
+    marginBottom: 16,
+  },
+  todayLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  todayValue: {
+    fontSize: 32,
+    fontWeight: '800',
+  },
+  comparisonMetrics: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  metricBox: {
+    flex: 1,
+    borderRadius: 10,
+    padding: 12,
+    borderWidth: 2,
+  },
+  metricHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 8,
+  },
+  metricTitle: {
+    fontSize: 10,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+  },
+  metricContent: {
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  metricCount: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  metricChange: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+  metricPercent: {
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  metricLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  agentEmailButton: {
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: 'rgba(59, 130, 246, 0.1)',
   },
 });

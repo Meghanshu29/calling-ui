@@ -20,6 +20,7 @@ import { UserDetailsModal } from "../../components/UserDetailsModal";
 import { getAssignmentStats } from "../../endpoints/stats";
 import { getBusyCallLaterUsers, getCompleteSoonUsers, getDeclinedUsers, getEscalatedUsers, getInterestedNotRegisteredUsers, getInterestedUsers, getMarriedEngagedUsers, getNeedHelpUsers, getNotInterestedUsers, getNotSeriousUsers, getStatesAndCities } from "../../endpoints/users";
 import { useToast } from "../../hooks/useToast";
+import { exportToCSV } from "../../utils/excelExport";
 
 type SubTabType = "Busy Call Later" | "Declined" | "Not Serious" | "Escalate to Sonia" | "Interested" | "Not Interested" | "Interested Not Registered" | "Married/Engaged" | "Complete Soon" | "Need Help completing";
 
@@ -83,10 +84,11 @@ export default function OthersScreen() {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [showUserDetails, setShowUserDetails] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [downloadingExcel, setDownloadingExcel] = useState(false);
   const [loggedInUser, setLoggedInUser] = useState<string | null>(null);
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
-  const { toast, showError, hideToast } = useToast();
+  const { toast, showError, showSuccess, hideToast } = useToast();
 
   const fetchAgents = async () => {
     try {
@@ -394,6 +396,24 @@ export default function OthersScreen() {
     }
   };
 
+  const handleDownloadExcel = async () => {
+    try {
+      setDownloadingExcel(true);
+      const data = getCurrentData();
+      if (data.length === 0) {
+        showError("No data to export");
+        return;
+      }
+      await exportToCSV(data, `${activeSubTab.replace(/\s+/g, '_')}_users`);
+      showSuccess(`Excel file downloaded for ${activeSubTab}`);
+    } catch (error) {
+      console.error("Error downloading excel:", error);
+      showError("Failed to download Excel file");
+    } finally {
+      setDownloadingExcel(false);
+    }
+  };
+
   const renderUserCard = ({ item }: { item: User }) => (
     <TouchableOpacity
       style={[styles.userCard, { backgroundColor: isDark ? "#1e293b" : "#ffffff" }]}
@@ -558,6 +578,27 @@ export default function OthersScreen() {
             </TouchableOpacity>
           ) : null}
         </View>
+
+        {/* Download Excel Button - Only for Super Admin */}
+        {userRole === 'SUPER_ADMIN' && (
+          <TouchableOpacity
+            style={[styles.downloadButton, {
+              backgroundColor: downloadingExcel ? (isDark ? "#334155" : "#e2e8f0") : "#10b981",
+              opacity: downloadingExcel ? 0.6 : 1
+            }]}
+            onPress={handleDownloadExcel}
+            disabled={downloadingExcel}
+          >
+            {downloadingExcel ? (
+              <ActivityIndicator size="small" color="#ffffff" />
+            ) : (
+              <Ionicons name="download" size={20} color="#ffffff" />
+            )}
+            <Text style={styles.downloadButtonText}>
+              {downloadingExcel ? "Downloading..." : "Download Excel"}
+            </Text>
+          </TouchableOpacity>
+        )}
 
         {/* Agent Filter Dropdown - For All Users */}
         <View style={{ marginTop: 12, zIndex: 100 }}>
@@ -1090,5 +1131,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius: 8,
     marginBottom: 4,
+  },
+  downloadButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    marginTop: 12,
+    gap: 8,
+  },
+  downloadButtonText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '700',
   },
 });
