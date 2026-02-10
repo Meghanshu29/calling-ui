@@ -969,11 +969,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '800',
   },
-  metricLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
+   
   agentEmailButton: {
     padding: 8,
     borderRadius: 8,

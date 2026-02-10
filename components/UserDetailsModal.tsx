@@ -33,12 +33,12 @@ interface UserDetailsModalProps {
   currentUser?: string | null;
 }
 
-export const UserDetailsModal: React.FC<UserDetailsModalProps> = ({ 
-  visible, 
-  onClose, 
-  user, 
-  isDark, 
-  onUserUpdate, 
+export const UserDetailsModal: React.FC<UserDetailsModalProps> = ({
+  visible,
+  onClose,
+  user,
+  isDark,
+  onUserUpdate,
   isSuperAdmin = false,
   currentUser = null
 }) => {
@@ -54,11 +54,13 @@ export const UserDetailsModal: React.FC<UserDetailsModalProps> = ({
   const [agentSearch, setAgentSearch] = useState('');
   const instructionInputRef = useRef<TextInput>(null);
   const { toast, showSuccess, showError, hideToast } = useToast();
-  
+
   useEffect(() => {
     if (user) {
       setEditableInstruction(user.instruction || '');
       setEditableAssignedTo(user.assigned_to || '');
+      setFeedback(user.feedback || '');
+      setSelectedStatus(user.status || '');
     }
     fetchAgents();
   }, [user]);
@@ -75,7 +77,7 @@ export const UserDetailsModal: React.FC<UserDetailsModalProps> = ({
       console.error('Error fetching agents:', error);
     }
   };
-  
+
   if (!user) return null;
 
   const statusOptions = [
@@ -99,12 +101,12 @@ export const UserDetailsModal: React.FC<UserDetailsModalProps> = ({
       showError('Please select status and enter feedback');
       return;
     }
-    
+
     setUpdating(true);
     try {
       // 1. Update feedback and status
       await updateFeedback(user.id, selectedStatus, feedback, undefined, currentUser || undefined);
-      
+
       // 2. Update assignment and instruction using the specific endpoint requested
       // We pass the current instruction (either the one already there or the edited one)
       // and the current logged in user as the assigned_to
@@ -134,7 +136,7 @@ export const UserDetailsModal: React.FC<UserDetailsModalProps> = ({
       showError('Please enter an instruction');
       return;
     }
-    
+
     setUpdatingInstruction(true);
     try {
       await updateUserInstructionAndAssignment(
@@ -157,7 +159,7 @@ export const UserDetailsModal: React.FC<UserDetailsModalProps> = ({
       showError('Please select an agent');
       return;
     }
-    
+
     setUpdatingAssignment(true);
     try {
       await updateUserInstructionAndAssignment(
@@ -270,15 +272,13 @@ export const UserDetailsModal: React.FC<UserDetailsModalProps> = ({
               </View>
 
 
-              {!isSuperAdmin && (
-                <View style={[styles.detailRow, { borderBottomColor: isDark ? '#475569' : '#e5e7eb' }]}>
-                  <Ionicons name="flag" size={20} color={isDark ? '#60a5fa' : '#3b82f6'} />
-                  <View style={styles.detailContent}>
-                    <Text style={[styles.detailLabel, { color: isDark ? '#94a3b8' : '#6b7280' }]}>Status</Text>
-                    <Text style={[styles.detailValue, { color: isDark ? '#f8fafc' : '#0f172a' }]}>{user.status}</Text>
-                  </View>
+              <View style={[styles.detailRow, { borderBottomColor: isDark ? '#475569' : '#e5e7eb' }]}>
+                <Ionicons name="flag" size={20} color={isDark ? '#60a5fa' : '#3b82f6'} />
+                <View style={styles.detailContent}>
+                  <Text style={[styles.detailLabel, { color: isDark ? '#94a3b8' : '#6b7280' }]}>Status</Text>
+                  <Text style={[styles.detailValue, { color: isDark ? '#f8fafc' : '#0f172a' }]}>{user.status}</Text>
                 </View>
-              )}
+              </View>
 
               <View style={[styles.detailRow, { borderBottomColor: isDark ? '#475569' : '#e5e7eb' }]}>
                 <Ionicons name="pricetag" size={20} color={isDark ? '#60a5fa' : '#3b82f6'} />
@@ -304,17 +304,15 @@ export const UserDetailsModal: React.FC<UserDetailsModalProps> = ({
                 </View>
               </View>
 
-              {!isSuperAdmin && (
-                <View style={[styles.detailRow, { borderBottomColor: isDark ? '#475569' : '#e5e7eb' }]}>
-                  <Ionicons name="chatbubble" size={20} color={isDark ? '#60a5fa' : '#3b82f6'} />
-                  <View style={styles.detailContent}>
-                    <Text style={[styles.detailLabel, { color: isDark ? '#94a3b8' : '#6b7280' }]}>Feedback</Text>
-                    <Text style={[styles.detailValue, { color: isDark ? '#f8fafc' : '#0f172a' }]}>
-                      {user.feedback || 'No feedback'}
-                    </Text>
-                  </View>
+              <View style={[styles.detailRow, { borderBottomColor: isDark ? '#475569' : '#e5e7eb' }]}>
+                <Ionicons name="chatbubble" size={20} color={isDark ? '#60a5fa' : '#3b82f6'} />
+                <View style={styles.detailContent}>
+                  <Text style={[styles.detailLabel, { color: isDark ? '#94a3b8' : '#6b7280' }]}>Feedback</Text>
+                  <Text style={[styles.detailValue, { color: isDark ? '#f8fafc' : '#0f172a' }]}>
+                    {user.feedback || 'No feedback'}
+                  </Text>
                 </View>
-              )}
+              </View>
 
               <View style={styles.detailRow}>
                 <Ionicons name="calendar" size={20} color={isDark ? '#60a5fa' : '#3b82f6'} />
@@ -327,10 +325,10 @@ export const UserDetailsModal: React.FC<UserDetailsModalProps> = ({
               </View>
             </View>
 
-            {!isSuperAdmin && (
+            {isSuperAdmin && (
               <View style={[styles.updateSection, { backgroundColor: isDark ? '#475569' : '#f0f9ff' }]}>
                 <Text style={[styles.updateTitle, { color: isDark ? '#f8fafc' : '#0f172a' }]}>Update Status</Text>
-                
+
                 <View style={styles.statusDropdown}>
                   <Text style={[styles.inputLabel, { color: isDark ? '#94a3b8' : '#6b7280' }]}>Status</Text>
                   <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.statusScroll}>
@@ -386,7 +384,7 @@ export const UserDetailsModal: React.FC<UserDetailsModalProps> = ({
             {/* Update Assign To Section */}
             <View style={[styles.updateSection, { backgroundColor: isDark ? '#475569' : '#f0fdf4', marginTop: 20 }]}>
               <Text style={[styles.updateTitle, { color: isDark ? '#f8fafc' : '#0f172a' }]}>Update Assignment</Text>
-              
+
               <View style={styles.feedbackSection}>
                 <Text style={[styles.inputLabel, { color: isDark ? '#94a3b8' : '#6b7280' }]}>Assigned To</Text>
                 <TouchableOpacity
@@ -428,8 +426,8 @@ export const UserDetailsModal: React.FC<UserDetailsModalProps> = ({
                 />
               </View>
 
-              <GradientButton 
-                onPress={handleUpdateAssignment} 
+              <GradientButton
+                onPress={handleUpdateAssignment}
                 loading={updatingAssignment}
               >
                 Update Assignment
@@ -438,12 +436,12 @@ export const UserDetailsModal: React.FC<UserDetailsModalProps> = ({
 
             {/* Agent Picker Modal */}
             <Modal visible={showAgentModal} transparent animationType="fade">
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.pickerOverlay}
                 activeOpacity={1}
                 onPress={() => setShowAgentModal(false)}
               >
-                <View 
+                <View
                   style={[styles.pickerContainer, { backgroundColor: isDark ? '#1e293b' : '#ffffff' }]}
                   onStartShouldSetResponder={() => true}
                 >
@@ -453,7 +451,7 @@ export const UserDetailsModal: React.FC<UserDetailsModalProps> = ({
                       <Ionicons name="close" size={24} color={isDark ? '#94a3b8' : '#64748b'} />
                     </TouchableOpacity>
                   </View>
-                  
+
                   <View style={[styles.searchBar, { backgroundColor: isDark ? '#334155' : '#f8fafc' }]}>
                     <Ionicons name="search" size={20} color={isDark ? '#94a3b8' : '#64748b'} />
                     <TextInput

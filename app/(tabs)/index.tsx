@@ -136,78 +136,78 @@ export default function HomeScreen() {
     }
   };
   const fetchUsersByTab = async (tab: TabType) => {
-      setLoading(true);
-      setUsers([]);
-      setCurrentUser(null);
-      setOffset(0);
-      setHasMore(true);
-      try {
-        let response;
-        const isSuperAdmin = userRole?.toUpperCase() === "SUPER_ADMIN";
-        const limit = isSuperAdmin ? 50 : 1;
-        const fetchForUser = isSuperAdmin ? undefined : loggedInUser;
-        console.log("DEBUG: Fetching with limit:", limit, "for user:", fetchForUser);
+    setLoading(true);
+    setUsers([]);
+    setCurrentUser(null);
+    setOffset(0);
+    setHasMore(true);
+    try {
+      let response;
+      const isSuperAdmin = userRole?.toUpperCase() === "SUPER_ADMIN";
+      const limit = isSuperAdmin ? 50 : 1;
+      const fetchForUser = isSuperAdmin ? undefined : loggedInUser;
+      console.log("DEBUG: Fetching with limit:", limit, "for user:", fetchForUser);
 
-        switch (tab) {
-          case "unregister user":
-            response = await getUnregisteredUsers(
-              activeTab,
-              "pending",
-              fetchForUser,
-              filters.state || undefined,
-              filters.city || undefined,
-              limit,
-              !isSuperAdmin,
-              loggedInUser,
-              0
-            );
-            break;
+      switch (tab) {
+        case "unregister user":
+          response = await getUnregisteredUsers(
+            activeTab,
+            "pending",
+            fetchForUser,
+            filters.state || undefined,
+            filters.city || undefined,
+            limit,
+            !isSuperAdmin,
+            loggedInUser,
+            0
+          );
+          break;
 
-          case "matched_users":
-            response = await getUnregisteredUsers(
-              activeTab,
-              "pending",
-              fetchForUser,
-              filters.state || undefined,
-              filters.city || undefined,
-              limit,
-              !isSuperAdmin,
-              loggedInUser,
-              0
-            );
-            break;
+        case "matched_users":
+          response = await getUnregisteredUsers(
+            activeTab,
+            "pending",
+            fetchForUser,
+            filters.state || undefined,
+            filters.city || undefined,
+            limit,
+            !isSuperAdmin,
+            loggedInUser,
+            0
+          );
+          break;
 
-          case "incomplete user":
-            response = await getUnregisteredUsers(
-              "incomplete_user",
-              "pending",
-              fetchForUser,
-              filters.state || undefined,
-              filters.city || undefined,
-              limit,
-              !isSuperAdmin,
-              loggedInUser,
-              0
-            );
+        case "incomplete user":
+          response = await getUnregisteredUsers(
+            "incomplete_user",
+            "pending",
+            fetchForUser,
+            filters.state || undefined,
+            filters.city || undefined,
+            limit,
+            !isSuperAdmin,
+            loggedInUser,
+            0
+          );
 
-            break;
+          break;
 
-          default:
-            return;
+        default:
+          return;
+      }
+      console.log("Response Users=>", response);
+      if (response?.users?.length) {
+        setUsers(response.users);
+        if (userRole?.toUpperCase() !== "SUPER_ADMIN") {
+          setCurrentUser(response.users[0]);
         }
-        console.log("Response Users=>", response);
-        if (response?.users?.length) {
-          setUsers(response.users);
-          if (userRole?.toUpperCase() !== "SUPER_ADMIN") {
-            setCurrentUser(response.users[0]);
-          }
-          setOffset(response.users.length);
-          setHasMore(response.users.length === limit);
-        } else {
-          setUsers([]);
-          setCurrentUser(null);
-          setHasMore(false);
-        }
+        setOffset(response.users.length);
+        setHasMore(response.users.length === limit);
+      } else {
+        setUsers([]);
+        setCurrentUser(null);
+        setHasMore(false);
+      }
 
     } catch (error) {
       console.error("Error fetching user:", error);
@@ -258,7 +258,7 @@ export default function HomeScreen() {
   useEffect(() => {
     if (loggedInUser && activeTab && userRole) {
       console.log("DEBUG: useEffect triggering for role:", userRole);
-      
+
       // Only auto-fetch for SUPER_ADMIN
       // Customer support must click "Get Contacts" or apply filters
       if (userRole?.toUpperCase() === "SUPER_ADMIN") {
@@ -274,25 +274,25 @@ export default function HomeScreen() {
 
   const handleSubmitFeedback = () => {
     console.log("🔍 handleSubmitFeedback called with selectedStatus:", selectedStatusState);
-    
+
     if (!selectedStatusState) {
       console.log("❌ No status selected, showing error");
       showError("Please select a call status before proceeding");
       return;
     }
-    
+
     console.log("✅ Status validated:", selectedStatusState);
-    
+
     // Check if multiple phone numbers exist
     if (currentUser?.mobile_no) {
       const phoneNumbers = String(currentUser.mobile_no)
         .split(",")
         .map((phone) => phone.trim())
         .filter((phone) => phone);
-      
+
       const uniquePhoneNumbers = Array.from(new Set(phoneNumbers));
       console.log("📞 Phone numbers found:", uniquePhoneNumbers);
-      
+
       if (uniquePhoneNumbers.length > 1) {
         console.log("📱 Multiple numbers, showing phone selection");
         // Show phone selection modal
@@ -304,7 +304,7 @@ export default function HomeScreen() {
         setSelectedPhoneNumber(uniquePhoneNumbers[0]);
       }
     }
-    
+
     console.log("📝 Opening feedback modal with status:", selectedStatusState);
     setShowFeedbackModal(true);
   };
@@ -313,7 +313,7 @@ export default function HomeScreen() {
       showError("Please select a call status before proceeding");
       return;
     }
-    
+
     try {
       if (currentUser) {
         await updateFeedback(
@@ -324,11 +324,11 @@ export default function HomeScreen() {
           loggedInUser
         );
       }
-      
+
       showSuccess("Status saved successfully!");
       setSelectedStatus("");
       setLoadingNext(true);
-      
+
       const isSuperAdmin = userRole?.toUpperCase() === "SUPER_ADMIN";
       const apiTag = activeTab === "incomplete user" ? "incomplete_user" : activeTab;
       const response = await getUnregisteredUsers(
@@ -352,7 +352,7 @@ export default function HomeScreen() {
         setUsers([]);
         setCurrentUser(null);
       }
-      
+
       setLoadingNext(false);
     } catch (error) {
       console.error("Error updating feedback:", error);
@@ -407,6 +407,7 @@ export default function HomeScreen() {
             phone_number: selectedPhoneNumber,
             name: currentUser.name,
             is_interested: isInterested,
+            feedback: feedback,
           };
 
           await sendWhatsAppMessage(messageData);
@@ -423,7 +424,7 @@ export default function HomeScreen() {
       // Reset status only after successful completion
       setSelectedStatus("");
       setLoadingNext(true);
-      
+
       const isSuperAdmin = userRole?.toUpperCase() === "SUPER_ADMIN";
       const apiTag = activeTab === "incomplete user" ? "incomplete_user" : activeTab;
       const nextResponse = await getUnregisteredUsers(
@@ -497,19 +498,19 @@ export default function HomeScreen() {
   const handleApplyFilters = async (newFilters: FilterState) => {
     setFilters(newFilters);
     const hasFilters = newFilters.state || newFilters.city || newFilters.status;
-    
+
     // Automatically fetch users with the new filters
     await handleFetchAllUsers(newFilters);
-    
+
     showSuccess(
       hasFilters ? "Filters applied successfully" : "Showing all users",
     );
   };
-  console.log("DEBUG: Rendering HomeScreen", { 
-    activeTab, 
-    userRole, 
-    usersCount: users.length, 
-    loading, 
+  console.log("DEBUG: Rendering HomeScreen", {
+    activeTab,
+    userRole,
+    usersCount: users.length,
+    loading,
     currentUser: currentUser ? currentUser.name : 'NULL'
   });
 
@@ -523,8 +524,8 @@ export default function HomeScreen() {
       style={styles.container}
     >
       <LinearGradient
-        colors={isDark 
-          ? ['#1e293b', '#334155'] 
+        colors={isDark
+          ? ['#1e293b', '#334155']
           : ['#ffffff', '#dbeafe', '#bfdbfe']
         }
         style={[
@@ -573,7 +574,7 @@ export default function HomeScreen() {
 
         <View style={[
           styles.buttonRow,
-          { 
+          {
             backgroundColor: isDark ? "#0f172a" : "#f1f5f9",
             shadowColor: "transparent",
             borderWidth: 1,
@@ -592,7 +593,7 @@ export default function HomeScreen() {
           {userRole?.toUpperCase() !== "SUPER_ADMIN" && (
             <>
               <View style={[styles.verticalDivider, { backgroundColor: isDark ? "#334155" : "#e2e8f0" }]} />
-              
+
               <TouchableOpacity
                 style={styles.actionSegment}
                 onPress={() => handleFetchAllUsers()}
@@ -669,28 +670,28 @@ export default function HomeScreen() {
         </ScrollView>
       </View>
 
-        {loadingNext && (
-          <View
-            style={[
-              styles.progressContainer,
-              { backgroundColor: getTabColor(activeTab) + "20" },
-            ]}
-          >
-            <ActivityIndicator size="small" color={getTabColor(activeTab)} />
-            <Text style={[styles.progress, { color: getTabColor(activeTab) }]}>
-              Loading next contact...
-            </Text>
-          </View>
-        )}
-        {loggedInUser && userRole?.toUpperCase() === "SUPER_ADMIN" && currentUser && (
-          <TouchableOpacity 
-            style={[styles.backButton, { backgroundColor: getTabColor(activeTab) + '20' }]}
-            onPress={() => setCurrentUser(null)}
-          >
-            <Ionicons name="arrow-back" size={20} color={getTabColor(activeTab)} />
-            <Text style={{ color: getTabColor(activeTab), fontWeight: '600', marginLeft: 8 }}>Back to List</Text>
-          </TouchableOpacity>
-        )}
+      {loadingNext && (
+        <View
+          style={[
+            styles.progressContainer,
+            { backgroundColor: getTabColor(activeTab) + "20" },
+          ]}
+        >
+          <ActivityIndicator size="small" color={getTabColor(activeTab)} />
+          <Text style={[styles.progress, { color: getTabColor(activeTab) }]}>
+            Loading next contact...
+          </Text>
+        </View>
+      )}
+      {loggedInUser && userRole?.toUpperCase() === "SUPER_ADMIN" && currentUser && (
+        <TouchableOpacity
+          style={[styles.backButton, { backgroundColor: getTabColor(activeTab) + '20' }]}
+          onPress={() => setCurrentUser(null)}
+        >
+          <Ionicons name="arrow-back" size={20} color={getTabColor(activeTab)} />
+          <Text style={{ color: getTabColor(activeTab), fontWeight: '600', marginLeft: 8 }}>Back to List</Text>
+        </TouchableOpacity>
+      )}
 
       {userRole?.toUpperCase() === "SUPER_ADMIN" && !currentUser ? (
         <FlatList
@@ -698,11 +699,11 @@ export default function HomeScreen() {
           keyExtractor={(item: User) => item.id.toString()}
           style={styles.listContainer}
           renderItem={({ item: user }: { item: User }) => (
-            <TouchableOpacity 
-              key={user.id} 
+            <TouchableOpacity
+              key={user.id}
               style={[
-                styles.userListItem, 
-                { 
+                styles.userListItem,
+                {
                   backgroundColor: isDark ? "#1e293b" : "#ffffff",
                   borderColor: isDark ? "#334155" : "#e2e8f0",
                   shadowColor: getTabColor(activeTab), // Colored shadow glow
@@ -914,7 +915,7 @@ export default function HomeScreen() {
             >
               Which number did you call?
             </Text>
-            
+
             {availablePhoneNumbers.map((phone, index) => (
               <TouchableOpacity
                 key={index}
@@ -943,7 +944,7 @@ export default function HomeScreen() {
                 <Ionicons name="chevron-forward" size={16} color={isDark ? "#94a3b8" : "#64748b"} />
               </TouchableOpacity>
             ))}
-            
+
             <TouchableOpacity
               style={[styles.modalButton, styles.cancelButton]}
               onPress={() => setShowPhoneSelection(false)}
