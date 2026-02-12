@@ -1,15 +1,15 @@
-import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  Modal,
-  StyleSheet,
-  ActivityIndicator,
-  Alert,
-} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import React, { useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  Modal,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { sendWhatsAppMessage } from '../endpoints/users';
 
 interface WhatsAppModalProps {
@@ -30,7 +30,7 @@ export const WhatsAppModal: React.FC<WhatsAppModalProps> = ({
 
   if (!user) return null;
 
-  const phoneNumbers = user.mobile_no 
+  const phoneNumbers = user.mobile_no
     ? String(user.mobile_no).split(',').map(phone => phone.trim()).filter(phone => phone)
     : [];
 
@@ -44,8 +44,9 @@ export const WhatsAppModal: React.FC<WhatsAppModalProps> = ({
     try {
       const messageData = {
         phone_number: phoneNumber,
-        name: user.name,
+        name: user.name || 'Unknown User',
         is_interested: selectedInterest,
+        feedback: user.feedback || '',
       };
 
       await sendWhatsAppMessage(messageData);
@@ -96,10 +97,10 @@ export const WhatsAppModal: React.FC<WhatsAppModalProps> = ({
                 ]}
                 onPress={() => setSelectedInterest(1)}
               >
-                <Ionicons 
-                  name="heart" 
-                  size={20} 
-                  color={selectedInterest === 1 ? 'white' : '#22c55e'} 
+                <Ionicons
+                  name="heart"
+                  size={20}
+                  color={selectedInterest === 1 ? 'white' : '#22c55e'}
                 />
                 <Text style={[
                   styles.interestText,
@@ -117,10 +118,10 @@ export const WhatsAppModal: React.FC<WhatsAppModalProps> = ({
                 ]}
                 onPress={() => setSelectedInterest(0)}
               >
-                <Ionicons 
-                  name="heart-dislike" 
-                  size={20} 
-                  color={selectedInterest === 0 ? 'white' : '#ef4444'} 
+                <Ionicons
+                  name="heart-dislike"
+                  size={20}
+                  color={selectedInterest === 0 ? 'white' : '#ef4444'}
                 />
                 <Text style={[
                   styles.interestText,

@@ -2,16 +2,16 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useState } from "react";
 import {
-    Animated,
-    FlatList,
-    Linking,
-    Modal,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View
+  Animated,
+  FlatList,
+  Linking,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from "react-native";
 import { sendWhatsAppMessage, updateUserInstructionAndAssignment } from "../endpoints/users";
 import { MatchDetailsModal } from "./MatchDetailsModal";
@@ -130,7 +130,7 @@ export const UserCard: React.FC<UserCardProps> = ({
 
   const animateSlide = async () => {
     console.log("🔍 UserCard animateSlide called with selectedStatus:", selectedStatus);
-    
+
     // Validate that status is selected
     if (!selectedStatus) {
       console.warn("❌ UserCard: Status not selected, cannot proceed");
@@ -164,8 +164,9 @@ export const UserCard: React.FC<UserCardProps> = ({
     try {
       const messageData = {
         phone_number: phoneNumber,
-        name: user?.name,
+        name: user?.name || 'Unknown User',
         is_interested: isInterested,
+        feedback: user?.feedback || '',
       };
 
       await sendWhatsAppMessage(messageData);
@@ -190,20 +191,20 @@ export const UserCard: React.FC<UserCardProps> = ({
 
   const handleUpdateInstruction = async () => {
     if (!user) return;
-    
+
     if (!editableInstruction.trim()) {
       alert('Please enter an instruction');
       return;
     }
-    
+
     const payload = {
       user_id: user.id,
       instruction: editableInstruction,
       assigned_to: user.assigned_to
     };
-    
+
     console.log('🔵 Update Instruction Payload:', JSON.stringify(payload, null, 2));
-    
+
     setUpdatingInstruction(true);
     try {
       await updateUserInstructionAndAssignment(
@@ -277,8 +278,8 @@ export const UserCard: React.FC<UserCardProps> = ({
       <QuickActions
         isDark={isDark}
         currentUser={user}
-        onFetchUsers={onFetchUsers || (() => {})}
-        onOpenFilters={onOpenFilters || (() => {})}
+        onFetchUsers={onFetchUsers || (() => { })}
+        onOpenFilters={onOpenFilters || (() => { })}
       />
 
       <ScrollView
@@ -328,7 +329,7 @@ export const UserCard: React.FC<UserCardProps> = ({
               style={styles.avatarContainer}
             >
               <Text style={styles.avatarText}>
-                {user.name.charAt(0).toUpperCase()}
+                {user.name?.charAt(0).toUpperCase() || '?'}
               </Text>
             </LinearGradient>
             <View style={styles.userInfo}>
@@ -338,7 +339,7 @@ export const UserCard: React.FC<UserCardProps> = ({
                   { color: isDark ? "#f8fafc" : "#0f172a" },
                 ]}
               >
-                {user.name}
+                {user.name || 'Unknown User'}
               </Text>
               <View>
                 {user.mobile_no ? (
@@ -408,7 +409,7 @@ export const UserCard: React.FC<UserCardProps> = ({
                 Call Instructions
               </Text>
             </View>
-            
+
             {user.tag === "matched_users" ? (
               <Text
                 style={[
@@ -552,8 +553,8 @@ export const UserCard: React.FC<UserCardProps> = ({
                     colors={
                       selectedStatus
                         ? ["#3b82f6", "#1d4ed8"]
-                        : isDark 
-                          ? ["#334155", "#1e293b"] 
+                        : isDark
+                          ? ["#334155", "#1e293b"]
                           : ["#f1f5f9", "#e2e8f0"]
                     }
                     style={[
@@ -565,7 +566,7 @@ export const UserCard: React.FC<UserCardProps> = ({
                   >
                     <Animated.Text style={[
                       styles.submitButtonText,
-                      !selectedStatus && { 
+                      !selectedStatus && {
                         color: isDark ? "#94a3b8" : "#64748b",
                         opacity: pulseAnim
                       }

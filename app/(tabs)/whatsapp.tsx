@@ -2,14 +2,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useState } from 'react';
 import {
-    ActivityIndicator,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    useColorScheme,
-    View
+  ActivityIndicator,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  useColorScheme,
+  View
 } from 'react-native';
 import { Toast } from '../../components/Toast';
 import { sendWhatsAppMessage } from '../../endpoints/users';
@@ -18,6 +18,7 @@ import { useToast } from '../../hooks/useToast';
 export default function WhatsAppScreen() {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [name, setName] = useState('');
+  const [feedback, setFeedback] = useState('');
   const [isInterested, setIsInterested] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const colorScheme = useColorScheme();
@@ -44,14 +45,16 @@ export default function WhatsAppScreen() {
         phone_number: phoneNumber.trim(),
         name: name.trim(),
         is_interested: isInterested,
+        feedback: feedback.trim(),
       };
 
       await sendWhatsAppMessage(messageData);
       showSuccess('WhatsApp message sent successfully!');
-      
+
       // Clear form
       setPhoneNumber('');
       setName('');
+      setFeedback('');
       setIsInterested(null);
     } catch (error: any) {
       showError(error.message || 'Failed to send WhatsApp message');
@@ -123,6 +126,23 @@ export default function WhatsAppScreen() {
 
             <View style={styles.inputGroup}>
               <Text style={[styles.label, { color: isDark ? '#94a3b8' : '#64748b' }]}>
+                Feedback (Optional)
+              </Text>
+              <View style={[styles.inputContainer, { backgroundColor: isDark ? '#334155' : '#f8fafc', borderColor: isDark ? '#475569' : '#e2e8f0' }]}>
+                <Ionicons name="chatbubble-outline" size={20} color={isDark ? '#94a3b8' : '#64748b'} />
+                <TextInput
+                  style={[styles.input, { color: isDark ? '#f8fafc' : '#0f172a' }]}
+                  placeholder="Enter feedback message"
+                  placeholderTextColor={isDark ? '#64748b' : '#94a3b8'}
+                  value={feedback}
+                  onChangeText={setFeedback}
+                  multiline
+                />
+              </View>
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={[styles.label, { color: isDark ? '#94a3b8' : '#64748b' }]}>
                 Interest Status *
               </Text>
               <View style={styles.interestButtons}>
@@ -134,10 +154,10 @@ export default function WhatsAppScreen() {
                   ]}
                   onPress={() => setIsInterested(1)}
                 >
-                  <Ionicons 
-                    name="checkmark-circle" 
-                    size={20} 
-                    color={isInterested === 1 ? 'white' : '#22c55e'} 
+                  <Ionicons
+                    name="checkmark-circle"
+                    size={20}
+                    color={isInterested === 1 ? 'white' : '#22c55e'}
                   />
                   <Text style={[
                     styles.interestText,
@@ -155,10 +175,10 @@ export default function WhatsAppScreen() {
                   ]}
                   onPress={() => setIsInterested(0)}
                 >
-                  <Ionicons 
-                    name="close-circle" 
-                    size={20} 
-                    color={isInterested === 0 ? 'white' : '#ef4444'} 
+                  <Ionicons
+                    name="close-circle"
+                    size={20}
+                    color={isInterested === 0 ? 'white' : '#ef4444'}
                   />
                   <Text style={[
                     styles.interestText,
